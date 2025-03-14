@@ -1,40 +1,77 @@
 package persistence
 
 import (
-    "errors"
-    "codenames-game/internal/domain/game"
+	"codenames-game/internal/domain/game"
+	"errors"
+	"sync"
 )
 
-type InMemoryGameRepository struct {
-    games map[string]*game.Game
+// GameRepository implements an in-memory repository for games
+type GameRepository struct {
+	games map[string]*game.GameState
+	mutex sync.RWMutex
 }
 
-func NewInMemoryGameRepository() *InMemoryGameRepository {
-    return &InMemoryGameRepository{
-        games: make(map[string]*game.Game),
-    }
+// NewGameRepository creates a new in-memory game repository
+func NewGameRepository() *GameRepository {
+	return &GameRepository{
+		games: make(map[string]*game.GameState),
+	}
 }
 
-func (r *InMemoryGameRepository) Save(game *game.Game) error {
-    if game == nil {
-        return errors.New("game cannot be nil")
-    }
-    r.games[game.ID] = game
-    return nil
+// Create stores a new game
+func (r *GameRepository) Create(g *game.GameState) error {
+	if g.ID == "" {
+		return errors.New("game ID cannot be empty")
+	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	r.games[g.ID] = g
+	return nil
 }
 
-func (r *InMemoryGameRepository) FindByID(id string) (*game.Game, error) {
-    game, exists := r.games[id]
-    if !exists {
-        return nil, errors.New("game not found")
-    }
-    return game, nil
+// FindByID retrieves a game by ID
+func (r *GameRepository) FindByID(id string) (*game.GameState, error) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	g, exists := r.games[id]
+	if !exists {
+		return nil, errors.New("game not found")
+	}
+	return g, nil
 }
 
-func (r *InMemoryGameRepository) FindAll() ([]*game.Game, error) {
-    var allGames []*game.Game
-    for _, game := range r.games {
-        allGames = append(allGames, game)
-    }
-    return allGames, nil
+// Update updates an existing game
+func (r *GameRepository) Update(g *game.GameState) error {
+	if g.ID == "" {
+		return errors.New("game ID cannot be empty")
+	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	_, exists := r.games[g.ID]
+	if !exists {
+		return errors.New("game not found")
+	}
+
+	r.games[g.ID] = g
+	return nil
+}
+
+// Delete removes a game
+func (r *GameRepository) Delete(id string) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	_, exists := r.games[id]
+	if !exists {
+		return errors.New("game not found")
+	}
+
+	delete(r.games, id)
+	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -17,28 +18,22 @@ type Config struct {
 
 // ServerConfig holds HTTP server configuration
 type ServerConfig struct {
-	Port         string
 	Host         string
+	Port         string
 	ReadTimeout  int
 	WriteTimeout int
 }
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
-	Type     string
-	Host     string
-	Port     string
-	User     string
-	Password string
-	Name     string
+	URI      string
+	Database string
 }
 
 // GameConfig holds game-specific configuration
 type GameConfig struct {
-	WordsPerGame       int
-	BlueTeamStartsProb float64
-	AssassinCount      int
-	NeutralCount       int
+	DefaultTeamSize int
+	MaxPlayers      int
 }
 
 // LoadConfig loads configuration from environment variables
@@ -48,24 +43,18 @@ func LoadConfig() *Config {
 
 	return &Config{
 		Server: ServerConfig{
+			Host:         getEnv("SERVER_HOST", "localhost"),
 			Port:         getEnv("SERVER_PORT", "8080"),
-			Host:         getEnv("SERVER_HOST", "0.0.0.0"),
 			ReadTimeout:  getEnvAsInt("SERVER_READ_TIMEOUT", 10),
 			WriteTimeout: getEnvAsInt("SERVER_WRITE_TIMEOUT", 10),
 		},
 		Database: DatabaseConfig{
-			Type:     getEnv("DB_TYPE", "postgres"), // memory, postgres, mysql
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnv("DB_PORT", "5432"),
-			User:     getEnv("DB_USER", "root"),
-			Password: getEnv("DB_PASSWORD", "11052004ARAd."),
-			Name:     getEnv("DB_NAME", "codenames"),
+			URI:      getEnv("DB_URI", ""),
+			Database: getEnv("DB_NAME", "codenames"),
 		},
 		Game: GameConfig{
-			WordsPerGame:       getEnvAsInt("GAME_WORDS_PER_GAME", 25),
-			BlueTeamStartsProb: getEnvAsFloat("GAME_BLUE_TEAM_STARTS_PROB", 0.5),
-			AssassinCount:      getEnvAsInt("GAME_ASSASSIN_COUNT", 1),
-			NeutralCount:       getEnvAsInt("GAME_NEUTRAL_COUNT", 7),
+			DefaultTeamSize: getEnvAsInt("GAME_DEFAULT_TEAM_SIZE", 4),
+			MaxPlayers:      getEnvAsInt("GAME_MAX_PLAYERS", 10),
 		},
 	}
 }
@@ -98,6 +87,18 @@ func getEnvAsFloat(key string, defaultValue float64) float64 {
 			return defaultValue
 		}
 		return floatVal
+	}
+	return defaultValue
+}
+
+func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
+	if value, exists := os.LookupEnv(key); exists {
+		durationVal, err := time.ParseDuration(value)
+		if err != nil {
+			log.Printf("Error parsing %s as duration: %v. Using default: %v", key, err, defaultValue)
+			return defaultValue
+		}
+		return durationVal
 	}
 	return defaultValue
 }

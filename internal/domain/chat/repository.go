@@ -1,6 +1,8 @@
 package chat
 
-type ChatRepository interface {
-    SaveMessage(message *ChatMessage) error
-    GetMessages(chatID string) ([]*ChatMessage, error)
+// Repository defines the interface for chat data storage
+type Repository interface {
+	SaveMessage(message *Message) error
+	GetMessages(chatID string) ([]*Message, error)
+	GetAllMessages() ([]*Message, error)
 }

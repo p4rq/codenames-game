@@ -1,8 +1,7 @@
 package chat
 
 import (
-	"errors"
-	"sync"
+	"codenames-game/internal/domain/chat"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,59 +9,78 @@ import (
 
 // ServiceImpl implements the chat Service interface
 type ServiceImpl struct {
-	messages []Message
-	mutex    sync.RWMutex
+	repo chat.Repository
 }
 
-// NewService creates a new chat service
+// NewService creates a new chat service with an in-memory repository
 func NewService() Service {
+	// This would be replaced with a real repository in production
 	return &ServiceImpl{
-		messages: make([]Message, 0),
+		repo: newInMemoryRepository(),
 	}
 }
 
-// SendMessage adds a new message to the chat
-func (s *ServiceImpl) SendMessage(req MessageRequest) (*Message, error) {
-	if req.Content == "" {
-		return nil, errors.New("message content cannot be empty")
+// NewChatService creates a new chat service with the provided repository
+func NewChatService(repo chat.Repository) Service {
+	return &ServiceImpl{
+		repo: repo,
 	}
+}
 
-	msg := Message{
+// SendMessage sends a chat message
+func (s *ServiceImpl) SendMessage(req chat.MessageRequest) error {
+	message := &chat.Message{
 		ID:        uuid.New().String(),
-		UserID:    req.UserID,
-		Username:  req.Username,
 		Content:   req.Content,
+		SenderID:  req.SenderID,
+		Username:  req.Username,
+		ChatID:    req.ChatID,
 		Timestamp: time.Now(),
 	}
 
-	s.mutex.Lock()
-	s.messages = append(s.messages, msg)
-	s.mutex.Unlock()
-
-	return &msg, nil
+	return s.repo.SaveMessage(message)
 }
 
-// GetMessages retrieves chat messages
-func (s *ServiceImpl) GetMessages(limit int, before time.Time) ([]Message, error) {
-	if limit <= 0 {
-		limit = 50 // Default limit
+// GetMessages retrieves chat messages for a specific chat
+func (s *ServiceImpl) GetMessages(chatID string) ([]*chat.Message, error) {
+	return s.repo.GetMessages(chatID)
+}
+
+// GetAllMessages retrieves all chat messages
+func (s *ServiceImpl) GetAllMessages() ([]*chat.Message, error) {
+	return s.repo.GetAllMessages()
+}
+
+// inMemoryRepository is a simple in-memory implementation of Repository for testing
+type inMemoryRepository struct {
+	messages []*chat.Message
+}
+
+func newInMemoryRepository() *inMemoryRepository {
+	return &inMemoryRepository{
+		messages: make([]*chat.Message, 0),
 	}
+}
 
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+func (r *inMemoryRepository) SaveMessage(message *chat.Message) error {
+	r.messages = append(r.messages, message)
+	return nil
+}
 
-	var result []Message
-	var zeroTime time.Time
-	useTimeFilter := before != zeroTime
+func (r *inMemoryRepository) GetMessages(chatID string) ([]*chat.Message, error) {
+	var result []*chat.Message
 
-	// Start from the most recent messages
-	for i := len(s.messages) - 1; i >= 0 && len(result) < limit; i-- {
-		msg := s.messages[i]
-		if !useTimeFilter || msg.Timestamp.Before(before) {
-			// Insert at the beginning to maintain chronological order
-			result = append([]Message{msg}, result...)
+	for _, msg := range r.messages {
+		if msg.ChatID == chatID {
+			result = append(result, msg)
 		}
 	}
 
+	return result, nil
+}
+
+func (r *inMemoryRepository) GetAllMessages() ([]*chat.Message, error) {
+	result := make([]*chat.Message, len(r.messages))
+	copy(result, r.messages)
 	return result, nil
 }
