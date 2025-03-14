@@ -1,0 +1,75 @@
+.card {
+  background-color: #f8e9d1;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80px;
+  margin: 8px;
+  position: relative;
+  transition: all 0.3s ease;
+  text-align: center;
+  user-select: none;
+  word-break: break-word;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.card-content {
+  padding: 10px;
+  width: 100%;
+}
+
+.card-word {
+  font-size: 16px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+/* Card types */
+.revealed-red {
+  background-color: #ff6b6b;
+  color: white;
+}
+
+.revealed-blue {
+  background-color: #4a69bd;
+  color: white;
+}
+
+.revealed-neutral {
+  background-color: #f8f9fa;
+  color: #333;
+}
+
+.revealed-assassin {
+  background-color: #2f3542;
+  color: white;
+}
+
+/* Spymaster view */
+.spymaster-red {
+  border: 2px solid #ff6b6b;
+}
+
+.spymaster-blue {
+  border: 2px solid #4a69bd;
+}
+
+.spymaster-neutral {
+  border: 2px solid #f8f9fa;
+}
+
+.spymaster-assassin {
+  border: 2px solid #2f3542;
+}
+
+/* Hidden cards */
+.hidden {
+  background-color: #f8e9d1;
+}

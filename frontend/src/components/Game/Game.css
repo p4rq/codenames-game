@@ -1,0 +1,110 @@
+.game-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.game-header {
+  margin-bottom: 20px;
+}
+
+.game-header h1 {
+  margin-bottom: 10px;
+}
+
+.game-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.teams-info {
+  display: flex;
+  gap: 20px;
+}
+
+.team-red, .team-blue {
+  padding: 8px 16px;
+  border-radius: 4px;
+}
+
+.team-red {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.team-blue {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.active-turn {
+  font-weight: bold;
+  border: 2px solid currentColor;
+}
+
+.current-player {
+  font-weight: bold;
+}
+
+.winner-announcement {
+  font-size: 24px;
+  font-weight: bold;
+  color: #2e7d32;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.game-content {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+}
+
+.game-board {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.game-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.join-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+}
+
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 20px;
+  text-align: center;
+}
+
+.loading, .error-container {
+  text-align: center;
+  padding: 40px;
+  font-size: 18px;
+}
+
+@media (max-width: 768px) {
+  .game-content {
+    grid-template-columns: 1fr;
+  }
+}
