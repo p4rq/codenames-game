@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 
@@ -79,21 +80,25 @@ func (s *ServiceImpl) CreateGame(req game.CreateGameRequest) (*game.GameState, e
 	redCards := 0
 	blueCards := 0
 	for _, card := range cards {
-		if card.Type == game.RedCard {
+		if card.Type == game.RedCard { // Fixed comparison
 			redCards++
-		} else if card.Type == game.BlueCard {
+		} else if card.Type == game.BlueCard { // Fixed comparison
 			blueCards++
 		}
 	}
 
-	gameState := &game.GameState{
-		ID:            uuid.New().String(),
+	// Generate a unique game ID
+	gameID := generateGameID()
+
+	// Create the new game state
+	newGame := &game.GameState{
+		ID:            gameID,
 		Cards:         cards,
-		Players:       []game.Player{},
+		Players:       make([]game.Player, 0),
 		CurrentTurn:   firstTeam,
-		WinningTeam:   nil,
 		RedCardsLeft:  redCards,
 		BlueCardsLeft: blueCards,
+		WinningTeam:   nil,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}
@@ -102,24 +107,33 @@ func (s *ServiceImpl) CreateGame(req game.CreateGameRequest) (*game.GameState, e
 	creator := game.Player{
 		ID:          req.CreatorID,
 		Username:    req.Username,
-		Team:        game.RedTeam, // Default to red team
+		Team:        firstTeam,
 		IsSpymaster: false,
 	}
-	gameState.Players = append(gameState.Players, creator)
+	newGame.Players = append(newGame.Players, creator)
 
 	// Store in memory
-	s.mutex.Lock()
-	s.games[gameState.ID] = gameState
+	s.mutex.Lock() // Add mutex lock before modifying shared state
+	s.games[gameID] = newGame
 	s.mutex.Unlock()
 
 	// If repository is available, store the game there too
 	if s.repo != nil {
-		if err := s.repo.Create(gameState); err != nil {
+		err := s.repo.Create(newGame)
+		if err != nil {
 			return nil, err
 		}
 	}
 
-	return gameState, nil
+	fmt.Printf("Created new game with ID: %s\n", newGame.ID) // Add debug output
+
+	return newGame, nil
+}
+
+// Helper function to generate a unique game ID
+func generateGameID() string {
+	// A simple implementation - for production, use a more robust method
+	return "game-" + strconv.FormatInt(time.Now().UnixNano(), 36)
 }
 
 // GetGame retrieves a game by ID

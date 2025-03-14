@@ -40,13 +40,13 @@ type Player struct {
 
 // GameState represents the current state of a game
 type GameState struct {
-	ID            string    `json:"id"`
+	ID            string    `json:"id"` // Note lowercase "id" for JSON
 	Cards         []Card    `json:"cards"`
 	Players       []Player  `json:"players"`
 	CurrentTurn   Team      `json:"current_turn"`
-	WinningTeam   *Team     `json:"winning_team,omitempty"`
 	RedCardsLeft  int       `json:"red_cards_left"`
 	BlueCardsLeft int       `json:"blue_cards_left"`
+	WinningTeam   *Team     `json:"winning_team"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../../context/UserContext';
 import { GameContext } from '../../context/GameContext';
@@ -49,44 +49,33 @@ const HomePage = () => {
         <h1>Codenames</h1>
         
         <div className="form-section">
-          <label htmlFor="username">Your Name:</label>
+          <label htmlFor="username">Your Name</label>
           <input
-            id="username"
             type="text"
+            id="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="Enter your name"
+            required
           />
         </div>
         
-        {!isJoining ? (
-          <div className="create-game-section">
-            <button 
-              className="create-btn"
-              onClick={handleCreateGame}
-              disabled={!username}
-            >
-              Create New Game
-            </button>
-            <p>
-              Already have a game code? <button onClick={() => setIsJoining(true)}>Join Game</button>
-            </p>
-          </div>
-        ) : (
-          <div className="join-game-section">
+        {isJoining ? (
+          <>
             <div className="form-section">
-              <label htmlFor="gameId">Game Code:</label>
+              <label htmlFor="game-code">Game Code</label>
               <input
-                id="gameId"
                 type="text"
+                id="game-code"
                 value={gameId}
                 onChange={(e) => setGameId(e.target.value)}
                 placeholder="Enter game code"
+                required
               />
             </div>
             
             <div className="form-section">
-              <label htmlFor="team">Team:</label>
+              <label htmlFor="team">Select Team</label>
               <select
                 id="team"
                 value={team}
@@ -97,20 +86,37 @@ const HomePage = () => {
               </select>
             </div>
             
-            <button 
+            <button
               className="join-btn"
               onClick={handleJoinGame}
               disabled={!username || !gameId}
             >
               Join Game
             </button>
+            
             <p>
-              Want to create a new game? <button onClick={() => setIsJoining(false)}>Create Game</button>
+              Want to create a new game instead?{' '}
+              <button onClick={() => setIsJoining(false)}>Create Game</button>
             </p>
-          </div>
+          </>
+        ) : (
+          <>
+            <button
+              className="create-btn"
+              onClick={handleCreateGame}
+              disabled={!username}
+            >
+              Create New Game
+            </button>
+            
+            <p>
+              Have a game code?{' '}
+              <button onClick={() => setIsJoining(true)}>Join Existing Game</button>
+            </p>
+          </>
         )}
         
-        {error && <p className="error-message">{error}</p>}
+        {error && <div className="error-message">{error}</div>}
       </div>
     </div>
   );

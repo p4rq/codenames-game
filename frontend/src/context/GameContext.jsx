@@ -1,121 +1,122 @@
-import React, { createContext, useState, useCallback } from 'react';
-import { createGame, joinGame, getGame, revealCard, setSpymaster, endTurn } from '../services/gameService';
+import React, { createContext, useState } from 'react';
+import axios from 'axios';
 
 export const GameContext = createContext();
 
+// Define API base URL with the /api prefix
+const API_URL = '/api';
+
 export const GameProvider = ({ children }) => {
-  const [gameState, setGameState] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [game, setGame] = useState({
+    id: null,
+    cards: [],
+    players: [],
+    current_turn: null,
+    red_cards_left: 0,
+    blue_cards_left: 0,
+    winning_team: null
+  });
+  
+  const clearError = () => setError(null);
 
-  const startNewGame = useCallback(async (userId, username) => {
-    setLoading(true);
-    setError(null);
-    
+  const startNewGame = async (userId, username) => {
     try {
-      const response = await createGame(userId, username);
-      setGameState(response);
-      return response;
+      clearError();
+      console.log("Creating game with:", { userId, username });
+      
+      // Make sure we use /api/game/start not just /game/start
+      const response = await axios.post(`${API_URL}/game/start`, {
+        creator_id: userId,
+        username: username
+      });
+      
+      console.log("Server response:", response.data);
+      
+      // Check for valid response
+      if (!response.data || !response.data.id) {
+        console.error("Invalid game response:", response.data);
+        setError("Server returned an invalid game. Please try again.");
+        return null;
+      }
+      
+      const newGame = response.data;
+      setGame(newGame);
+      return newGame;
     } catch (err) {
-      setError(err.message || 'Failed to create game');
+      console.error("Error creating game:", err);
+      setError(err.response?.data || 'Failed to create game. Please try again.');
       return null;
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  };
 
-  const joinExistingGame = useCallback(async (gameId, userId, username, team) => {
-    setLoading(true);
-    setError(null);
-    
+  // Other methods like getGameState also need the API prefix
+  const getGameState = async (gameId) => {
     try {
-      const response = await joinGame(gameId, userId, username, team);
-      setGameState(response);
-      return response;
+      clearError();
+      const response = await axios.get(`${API_URL}/game/state?id=${gameId}`);
+      return response.data;
     } catch (err) {
-      setError(err.message || 'Failed to join game');
+      console.error("Error fetching game state:", err);
+      setError(err.response?.data || 'Failed to load game.');
       return null;
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  };
 
-  const refreshGameState = useCallback(async (gameId) => {
-    setLoading(true);
-    setError(null);
-    
+  // Make sure all other API calls use the same prefix
+  const revealCard = async (gameId, cardId, playerId) => {
     try {
-      const response = await getGame(gameId);
-      setGameState(response);
-      return response;
+      clearError();
+      const response = await axios.post(`${API_URL}/game/reveal`, {
+        game_id: gameId,
+        card_id: cardId,
+        player_id: playerId
+      });
+      return response.data;
     } catch (err) {
-      setError(err.message || 'Failed to get game state');
+      console.error("Error revealing card:", err);
+      setError(err.response?.data || 'Failed to reveal card.');
       return null;
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  };
 
-  const revealGameCard = useCallback(async (gameId, cardId, playerId) => {
-    setLoading(true);
-    setError(null);
-    
+  const setSpymaster = async (gameId, playerId) => {
     try {
-      const response = await revealCard(gameId, cardId, playerId);
-      setGameState(response);
-      return response;
+      clearError();
+      const response = await axios.post(`${API_URL}/game/set-spymaster?game_id=${gameId}&player_id=${playerId}`);
+      return response.data;
     } catch (err) {
-      setError(err.message || 'Failed to reveal card');
+      console.error("Error setting spymaster:", err);
+      setError(err.response?.data || 'Failed to become spymaster.');
       return null;
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  };
 
-  const becomeSpymaster = useCallback(async (gameId, playerId) => {
-    setLoading(true);
-    setError(null);
-    
+  const endTurn = async (gameId, playerId) => {
     try {
-      const response = await setSpymaster(gameId, playerId);
-      setGameState(response);
-      return response;
+      clearError();
+      const response = await axios.post(`${API_URL}/game/end-turn?game_id=${gameId}&player_id=${playerId}`);
+      return response.data;
     } catch (err) {
-      setError(err.message || 'Failed to set spymaster');
+      console.error("Error ending turn:", err);
+      setError(err.response?.data || 'Failed to end turn.');
       return null;
-    } finally {
-      setLoading(false);
     }
-  }, []);
-
-  const finishTurn = useCallback(async (gameId, playerId) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await endTurn(gameId, playerId);
-      setGameState(response);
-      return response;
-    } catch (err) {
-      setError(err.message || 'Failed to end turn');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  };
 
   return (
-    <GameContext.Provider value={{
-      gameState,
-      loading,
-      error,
-      startNewGame,
-      joinExistingGame,
-      refreshGameState,
-      revealGameCard,
-      becomeSpymaster,
-      finishTurn
-    }}>
+    <GameContext.Provider 
+      value={{ 
+        game, 
+        error, 
+        startNewGame, 
+        joinExistingGame: () => {}, // Implement this as needed
+        getGameState, 
+        revealCard, 
+        setSpymaster, 
+        endTurn 
+      }}
+    >
       {children}
     </GameContext.Provider>
   );

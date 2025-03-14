@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"codenames-game/configs"
@@ -16,17 +18,45 @@ import (
 	"github.com/rs/cors"
 )
 
+// spaHandler implements the http.Handler interface for serving a Single Page Application
+type spaHandler struct {
+	staticPath string
+	indexPath  string
+}
+
+// ServeHTTP serves the React app, routing all non-API requests to index.html
+func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Get the absolute path to prevent directory traversal
+	path := filepath.Join(h.staticPath, r.URL.Path)
+
+	// Check if file exists
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		// File doesn't exist, serve index.html
+		http.ServeFile(w, r, filepath.Join(h.staticPath, h.indexPath))
+		return
+	}
+
+	if err != nil {
+		// Some other error occurred
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// File exists, serve it
+	http.FileServer(http.Dir(h.staticPath)).ServeHTTP(w, r)
+}
+
 func main() {
 	// Load configuration
 	config := configs.LoadConfig()
 
 	// Initialize repositories
 	gameRepo := persistence.NewGameRepository()
-	chatRepo := persistence.NewChatRepository()
 
 	// Initialize services
 	gameSvc := gameService.NewServiceWithRepo(gameRepo)
-	chatSvc := chatService.NewChatService(chatRepo)
+	chatSvc := chatService.NewChatService(nil)
 
 	// Initialize handlers
 	gameHandler := api.NewGameHandler(gameSvc)
@@ -35,132 +65,43 @@ func main() {
 	// Setup router
 	router := mux.NewRouter()
 
-	// Add a welcome page
-	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `
-        <html>
-            <head>
-                <title>Codenames Game API</title>
-                <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; max-width: 800px; margin: 0 auto; }
-                    h1 { color: #333; }
-                    h2 { color: #555; }
-                    code { background: #f4f4f4; padding: 5px; border-radius: 3px; }
-                    pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }
-                    .endpoint { margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-                </style>
-            </head>
-            <body>
-                <h1>Codenames Game API</h1>
-                <p>Welcome to the Codenames Game API! Below are the available endpoints:</p>
-                
-                <h2>Game Endpoints</h2>
-                
-                <div class="endpoint">
-                    <h3>Create Game</h3>
-                    <code>POST /api/game/start</code>
-                    <pre>
-{
-  "creator_id": "user-123",
-  "username": "Player1"
-}
-                    </pre>
-                </div>
-                
-                <div class="endpoint">
-                    <h3>Join Game</h3>
-                    <code>POST /api/game/join</code>
-                    <pre>
-{
-  "game_id": "game-123",
-  "player_id": "user-456",
-  "username": "Player2",
-  "team": "red" // or "blue"
-}
-                    </pre>
-                </div>
-                
-                <div class="endpoint">
-                    <h3>Get Game State</h3>
-                    <code>GET /api/game/state?id=game-123</code>
-                </div>
-                
-                <div class="endpoint">
-                    <h3>Set Spymaster</h3>
-                    <code>POST /api/game/set-spymaster?game_id=game-123&player_id=user-123</code>
-                </div>
-                
-                <div class="endpoint">
-                    <h3>Reveal Card</h3>
-                    <code>POST /api/game/reveal</code>
-                    <pre>
-{
-  "game_id": "game-123",
-  "card_id": "card-456",
-  "player_id": "user-123"
-}
-                    </pre>
-                </div>
-                
-                <div class="endpoint">
-                    <h3>End Turn</h3>
-                    <code>POST /api/game/end-turn?game_id=game-123&player_id=user-123</code>
-                </div>
-                
-                <h2>Chat Endpoints</h2>
-                
-                <div class="endpoint">
-                    <h3>Send Message</h3>
-                    <code>POST /api/chat/send</code>
-                    <pre>
-{
-  "content": "Hello everyone",
-  "sender_id": "user-123",
-  "username": "Player1",
-  "chat_id": "game-123"
-}
-                    </pre>
-                </div>
-                
-                <div class="endpoint">
-                    <h3>Get Messages</h3>
-                    <code>GET /api/chat/messages?chat_id=game-123</code>
-                </div>
-                
-                <p>Use these endpoints to interact with the Codenames Game API.</p>
-                <p>For a simple test client, open the test-client.html file in your browser.</p>
-            </body>
-        </html>
-        `)
-	})
+	// API routes need to be registered BEFORE the SPA handler
+	apiRouter := router.PathPrefix("/api").Subrouter()
 
-	// Register API routes
-	gameHandler.RegisterRoutes(router)
-	chatHandler.RegisterRoutes(router)
+	// Game routes
+	apiRouter.HandleFunc("/game/start", gameHandler.StartGame).Methods("POST")
+	apiRouter.HandleFunc("/game/join", gameHandler.JoinGame).Methods("POST")
+	apiRouter.HandleFunc("/game/state", gameHandler.GetGameState).Methods("GET")
+	apiRouter.HandleFunc("/game/reveal", gameHandler.RevealCard).Methods("POST")
+	apiRouter.HandleFunc("/game/set-spymaster", gameHandler.SetSpymaster).Methods("POST")
+	apiRouter.HandleFunc("/game/end-turn", gameHandler.EndTurn).Methods("POST")
 
-	// Add middleware for CORS
+	// Chat routes
+	apiRouter.HandleFunc("/chat/send", chatHandler.SendMessage).Methods("POST")
+	apiRouter.HandleFunc("/chat/messages", chatHandler.GetMessages).Methods("GET")
+
+	// CORS middleware
 	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"}, // Allow all origins for testing
+		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
 	})
 
-	// Setup HTTP server
-	serverAddr := fmt.Sprintf("%s:%s", config.Server.Host, config.Server.Port)
-	srv := &http.Server{
-		Addr:         serverAddr,
+	// SPA handler should come AFTER the API routes
+	spa := spaHandler{staticPath: "frontend/build", indexPath: "index.html"}
+	router.PathPrefix("/").Handler(spa)
+
+	// Setup HTTP server with proper timeouts from config
+	server := &http.Server{
+		Addr:         ":" + config.Server.Port, // Use Server.Port from the nested structure
 		Handler:      corsMiddleware.Handler(router),
 		ReadTimeout:  time.Duration(config.Server.ReadTimeout) * time.Second,
 		WriteTimeout: time.Duration(config.Server.WriteTimeout) * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	// Start the server
-	log.Printf("Starting Codenames Game server on %s", serverAddr)
-	log.Printf("Visit http://%s to see the API documentation", serverAddr)
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("Error starting server: %v", err)
-	}
+	fmt.Printf("Starting Codenames Game server on :%s\n", config.Server.Port) // Use Server.Port here too
+	log.Fatal(server.ListenAndServe())
 }

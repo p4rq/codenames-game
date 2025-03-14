@@ -1,19 +1,21 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Home from './components/Home/Home';
-import Game from './components/Game/Game';
+import { Routes, Route } from 'react-router-dom';
+import HomePage from './pages/Home';
+import GamePage from './pages/Game';
+import { UserProvider } from './context/UserContext';
+import { GameProvider } from './context/GameContext';
 import './App.css';
 
 function App() {
   return (
-    <Router>
-      <div className="App">
+    <UserProvider>
+      <GameProvider>
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/game/:gameId" element={<Game />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/game/:gameId" element={<GamePage />} />
         </Routes>
-      </div>
-    </Router>
+      </GameProvider>
+    </UserProvider>
   );
 }
 
