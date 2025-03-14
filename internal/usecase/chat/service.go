@@ -1,19 +1,30 @@
 package chat
 
-import "codenames-game/internal/domain/chat"
+import (
+	"time"
+)
 
-type ChatService struct {
-    repository chat.ChatRepository
+// Message represents a chat message
+type Message struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Username  string    `json:"username"`
+	Content   string    `json:"content"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
-func NewChatService(repository chat.ChatRepository) *ChatService {
-    return &ChatService{repository: repository}
+// MessageRequest represents the request to send a new message
+type MessageRequest struct {
+	UserID   string `json:"user_id"`
+	Username string `json:"username"`
+	Content  string `json:"content"`
 }
 
-func (s *ChatService) SendMessage(message chat.Message) error {
-    return s.repository.SaveMessage(message)
-}
+// Service defines the interface for chat functionality
+type Service interface {
+	// SendMessage adds a new message to the chat
+	SendMessage(req MessageRequest) (*Message, error)
 
-func (s *ChatService) GetMessages() ([]chat.Message, error) {
-    return s.repository.FetchMessages()
+	// GetMessages retrieves chat messages, optionally filtered by parameters
+	GetMessages(limit int, before time.Time) ([]Message, error)
 }

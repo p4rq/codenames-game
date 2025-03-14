@@ -2,13 +2,11 @@ package main
 
 import (
 	"codenames-game/configs"
+	api "codenames-game/internal/interfaces"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
-
-	"github.com/p4rq/codenames-game/configs"
-	"github.com/p4rq/codenames-game/internal/interfaces/api"
 )
 
 func main() {

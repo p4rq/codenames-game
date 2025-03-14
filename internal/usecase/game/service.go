@@ -1,26 +1,26 @@
 package game
 
 import (
-    "codenames-game/internal/domain/game"
+	"codenames-game/internal/domain/game"
 )
 
-type GameService struct {
-    repository game.GameRepository
-}
+// Service defines the interface for game functionality
+type Service interface {
+	// CreateGame creates a new game
+	CreateGame(req game.CreateGameRequest) (*game.GameState, error)
 
-func NewGameService(repo game.GameRepository) *GameService {
-    return &GameService{repository: repo}
-}
+	// GetGame retrieves a game by ID
+	GetGame(gameID string) (*game.GameState, error)
 
-func (s *GameService) StartNewGame() (*game.Game, error) {
-    newGame := game.NewGame() // Assuming NewGame initializes a new game entity
-    err := s.repository.Save(newGame)
-    if err != nil {
-        return nil, err
-    }
-    return newGame, nil
-}
+	// JoinGame adds a player to a game
+	JoinGame(req game.JoinGameRequest) (*game.GameState, error)
 
-func (s *GameService) GetGameState(gameID string) (*game.Game, error) {
-    return s.repository.FindByID(gameID)
+	// RevealCard reveals a card
+	RevealCard(req game.RevealCardRequest) (*game.GameState, error)
+
+	// SetSpymaster sets a player as a spymaster
+	SetSpymaster(gameID string, playerID string) (*game.GameState, error)
+
+	// EndTurn ends the current team's turn
+	EndTurn(gameID string, playerID string) (*game.GameState, error)
 }
