@@ -52,10 +52,27 @@ export const post = async (endpoint, data = {}) => {
 // Generate random user ID for this session
 const USER_ID = `user-${Math.floor(Math.random() * 10000)}`;
 
-const api = {
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || '',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+});
+
+// Intercept responses to handle common errors
+api.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('API Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+const apiMethods = {
   // Game operations
   createGame: async (username) => {
-    const response = await axios.post(`${API_URL}/game/start`, {
+    const response = await api.post(`/game/start`, {
       creator_id: USER_ID,
       username: username || 'Anonymous'
     });
@@ -63,7 +80,7 @@ const api = {
   },
 
   joinGame: async (gameId, username, team) => {
-    const response = await axios.post(`${API_URL}/game/join`, {
+    const response = await api.post(`/game/join`, {
       game_id: gameId,
       player_id: USER_ID,
       username: username || 'Anonymous',
@@ -73,17 +90,17 @@ const api = {
   },
 
   getGameState: async (gameId) => {
-    const response = await axios.get(`${API_URL}/game/state?id=${gameId}`);
+    const response = await api.get(`/game/state?id=${gameId}`);
     return response.data;
   },
 
   setSpymaster: async (gameId) => {
-    const response = await axios.post(`${API_URL}/game/set-spymaster?game_id=${gameId}&player_id=${USER_ID}`);
+    const response = await api.post(`/game/set-spymaster?game_id=${gameId}&player_id=${USER_ID}`);
     return response.data;
   },
 
   revealCard: async (gameId, cardId) => {
-    const response = await axios.post(`${API_URL}/game/reveal`, {
+    const response = await api.post(`/game/reveal`, {
       game_id: gameId,
       card_id: cardId,
       player_id: USER_ID
@@ -92,13 +109,13 @@ const api = {
   },
 
   endTurn: async (gameId) => {
-    const response = await axios.post(`${API_URL}/game/end-turn?game_id=${gameId}&player_id=${USER_ID}`);
+    const response = await api.post(`/game/end-turn?game_id=${gameId}&player_id=${USER_ID}`);
     return response.data;
   },
 
   // Chat operations
   sendMessage: async (gameId, username, content) => {
-    const response = await axios.post(`${API_URL}/chat/send`, {
+    const response = await api.post(`/chat/send`, {
       content: content,
       sender_id: USER_ID,
       username: username || 'Anonymous',
@@ -108,7 +125,7 @@ const api = {
   },
 
   getMessages: async (gameId) => {
-    const response = await axios.get(`${API_URL}/chat/messages?chat_id=${gameId}`);
+    const response = await api.get(`/chat/messages?chat_id=${gameId}`);
     return response.data;
   },
 
@@ -116,4 +133,4 @@ const api = {
   getUserId: () => USER_ID
 };
 
-export default api;
+export default apiMethods;

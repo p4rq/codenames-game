@@ -51,8 +51,8 @@ func TestGetMessages(t *testing.T) {
 	service.SendMessage(req1)
 	service.SendMessage(req2)
 
-	// Test getting messages for a specific chat
-	gameMessages, err := service.GetMessages("game-123")
+	// Test getting messages for a specific chat (empty team means all messages)
+	gameMessages, err := service.GetMessages("game-123", "")
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(gameMessages))
 	assert.Equal(t, "Game message", gameMessages[0].Content)

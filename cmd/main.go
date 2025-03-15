@@ -57,23 +57,20 @@ func main() {
 
 	// Initialize repositories
 	gameRepo := persistence.NewGameRepository()
+	chatRepo := persistence.NewChatRepository()
 
-	// Initialize services
-	gameSvc := gameService.NewServiceWithRepo(gameRepo)
-	chatSvc := chatService.NewChatService(nil)
+	// Create WebSocket handler first
+	wsHandler := api.NewWebSocketHandler()
+
+	// Initialize game service with WebSocket handler directly
+	gameSvc := gameService.NewServiceWithWebSocket(gameRepo, wsHandler)
+
+	// Initialize chat service
+	chatSvc := chatService.NewChatService(chatRepo)
 
 	// Initialize handlers
 	gameHandler := api.NewGameHandler(gameSvc)
 	chatHandler := api.NewChatHandler(chatSvc)
-
-	// Create WebSocket handler
-	wsHandler := api.NewWebSocketHandler()
-
-	// Create game service with WebSocket handler
-	gameService := gameService.NewServiceWithWebSocket(gameRepo, wsHandler)
-
-	// Create handlers
-	gameHandler = api.NewGameHandler(gameService)
 
 	// Setup router
 	router := mux.NewRouter()
@@ -90,6 +87,10 @@ func main() {
 	apiRouter.HandleFunc("/game/end-turn", gameHandler.EndTurn).Methods("POST")
 
 	// Chat routes
+	apiRouter.HandleFunc("/games/{gameId}/messages", chatHandler.GetGameMessages).Methods("GET")
+	apiRouter.HandleFunc("/games/{gameId}/messages", chatHandler.SendGameMessage).Methods("POST")
+
+	// Legacy chat routes (keep for backwards compatibility)
 	apiRouter.HandleFunc("/chat/send", chatHandler.SendMessage).Methods("POST")
 	apiRouter.HandleFunc("/chat/messages", chatHandler.GetMessages).Methods("GET")
 

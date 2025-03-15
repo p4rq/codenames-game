@@ -5,41 +5,71 @@ import { GameContext } from '../../context/GameContext';
 import './style.css';
 
 const HomePage = () => {
-  const { user, updateUsername } = useContext(UserContext);
+  const { user, createUser, updateUsername } = useContext(UserContext);
   const { startNewGame, joinExistingGame, error } = useContext(GameContext);
   
   const [username, setUsername] = useState(user?.username || '');
   const [gameId, setGameId] = useState('');
   const [team, setTeam] = useState('red');
   const [isJoining, setIsJoining] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const navigate = useNavigate();
 
-  const handleCreateGame = async () => {
-    if (!user) return;
-    
-    // Update user's name if changed
-    if (username !== user.username) {
-      updateUsername(username);
+  // Update username state when user changes
+  useEffect(() => {
+    if (user?.username) {
+      setUsername(user.username);
     }
+  }, [user]);
+
+  const handleCreateGame = async () => {
+    if (!username.trim()) return;
+    setIsProcessing(true);
     
-    const game = await startNewGame(user.id, username);
-    if (game) {
-      navigate(`/game/${game.id}`);
+    try {
+      // Ensure we have a user
+      let currentUser = user;
+      if (!currentUser) {
+        currentUser = createUser(username);
+      } else if (username !== currentUser.username) {
+        currentUser = updateUsername(username);
+      }
+      
+      // Now create the game
+      const game = await startNewGame(currentUser.id, username);
+      if (game) {
+        navigate(`/game/${game.id}`);
+      }
+    } catch (err) {
+      console.error('Error creating game:', err);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleJoinGame = async () => {
-    if (!user || !gameId) return;
+    if (!username.trim() || !gameId) return;
+    setIsProcessing(true);
     
-    // Update user's name if changed
-    if (username !== user.username) {
-      updateUsername(username);
-    }
-    
-    const game = await joinExistingGame(gameId, user.id, username, team);
-    if (game) {
-      navigate(`/game/${game.id}`);
+    try {
+      // Ensure we have a user
+      let currentUser = user;
+      if (!currentUser) {
+        currentUser = createUser(username);
+      } else if (username !== currentUser.username) {
+        currentUser = updateUsername(username);
+      }
+      
+      // Now join the game
+      const game = await joinExistingGame(gameId, currentUser.id, username, team);
+      if (game) {
+        navigate(`/game/${game.id}`);
+      }
+    } catch (err) {
+      console.error('Error joining game:', err);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -89,9 +119,9 @@ const HomePage = () => {
             <button
               className="join-btn"
               onClick={handleJoinGame}
-              disabled={!username || !gameId}
+              disabled={!username || !gameId || isProcessing}
             >
-              Join Game
+              {isProcessing ? 'Joining...' : 'Join Game'}
             </button>
             
             <p>
@@ -104,9 +134,9 @@ const HomePage = () => {
             <button
               className="create-btn"
               onClick={handleCreateGame}
-              disabled={!username}
+              disabled={!username || isProcessing}
             >
-              Create New Game
+              {isProcessing ? 'Creating...' : 'Create New Game'}
             </button>
             
             <p>

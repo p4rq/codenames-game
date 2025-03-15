@@ -35,15 +35,21 @@ func (s *ServiceImpl) SendMessage(req chat.MessageRequest) error {
 		SenderID:  req.SenderID,
 		Username:  req.Username,
 		ChatID:    req.ChatID,
+		Team:      req.Team, // Add team field
 		Timestamp: time.Now(),
 	}
 
 	return s.repo.SaveMessage(message)
 }
 
-// GetMessages retrieves chat messages for a specific chat
-func (s *ServiceImpl) GetMessages(chatID string) ([]*chat.Message, error) {
-	return s.repo.GetMessages(chatID)
+// GetMessages retrieves chat messages for a specific game
+func (s *ServiceImpl) GetMessages(gameId string, team string) ([]*chat.Message, error) {
+	// If team is specified, get only messages for that team
+	if team != "" {
+		return s.repo.GetMessagesByTeam(gameId, team)
+	}
+	// Otherwise get all messages for the game
+	return s.repo.GetMessages(gameId)
 }
 
 // GetAllMessages retrieves all chat messages
@@ -72,6 +78,18 @@ func (r *inMemoryRepository) GetMessages(chatID string) ([]*chat.Message, error)
 
 	for _, msg := range r.messages {
 		if msg.ChatID == chatID {
+			result = append(result, msg)
+		}
+	}
+
+	return result, nil
+}
+
+func (r *inMemoryRepository) GetMessagesByTeam(chatID string, team string) ([]*chat.Message, error) {
+	var result []*chat.Message
+
+	for _, msg := range r.messages {
+		if msg.ChatID == chatID && msg.Team == team {
 			result = append(result, msg)
 		}
 	}

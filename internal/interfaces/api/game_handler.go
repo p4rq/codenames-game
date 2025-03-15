@@ -79,6 +79,11 @@ func (h *GameHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 		Team:     game.Team(req.Team),
 	}
 
+	// Make sure the user is assigned a team
+	if req.Team != "" {
+		joinReq.Team = game.Team(req.Team)
+	}
+
 	gameState, err := h.gameService.JoinGame(joinReq)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -213,5 +218,5 @@ func (h *GameHandler) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/game/reveal", h.RevealCard).Methods("POST")
 	r.HandleFunc("/api/game/set-spymaster", h.SetSpymaster).Methods("POST")
 	r.HandleFunc("/api/game/end-turn", h.EndTurn).Methods("POST")
-	r.HandleFunc("/game/change-team", h.ChangeTeam).Methods("POST")
+	r.HandleFunc("/api/game/change-team", h.ChangeTeam).Methods("POST")
 }

@@ -1,12 +1,47 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useContext } from 'react';
 import axios from 'axios';
+import { UserContext } from './UserContext';
 
 export const GameContext = createContext();
 
 // Define API base URL with the /api prefix
 const API_URL = '/api';
 
+// Add request/response interceptors for debugging
+axios.interceptors.request.use(
+  config => {
+    console.log('API Request:', {
+      method: config.method,
+      url: config.url,
+      data: config.data
+    });
+    return config;
+  },
+  error => {
+    console.error('API Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+axios.interceptors.response.use(
+  response => {
+    console.log('API Response:', {
+      status: response.status,
+      data: response.data
+    });
+    return response;
+  },
+  error => {
+    console.error('API Response Error:', {
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    return Promise.reject(error);
+  }
+);
+
 export const GameProvider = ({ children }) => {
+  const { user, updateUser } = useContext(UserContext);
   const [error, setError] = useState(null);
   const [game, setGame] = useState({
     id: null,
@@ -20,32 +55,27 @@ export const GameProvider = ({ children }) => {
   
   const clearError = () => setError(null);
 
-  const startNewGame = async (userId, username) => {
+  const startNewGame = async (playerId, username) => {
+    clearError();
+    
     try {
-      clearError();
-      console.log("Creating game with:", { userId, username });
+      console.log(`Starting new game for player: ${playerId}, ${username}`);
       
-      // Make sure we use /api/game/start not just /game/start
       const response = await axios.post(`${API_URL}/game/start`, {
-        creator_id: userId,
+        creator_id: playerId,  // Changed from player_id to creator_id
         username: username
       });
       
-      console.log("Server response:", response.data);
-      
-      // Check for valid response
-      if (!response.data || !response.data.id) {
-        console.error("Invalid game response:", response.data);
-        setError("Server returned an invalid game. Please try again.");
-        return null;
+      if (response.status === 200 || response.status === 201) {
+        console.log("Server response:", response.data);
+        setGame(response.data);
+        return response.data;
+      } else {
+        throw new Error(`Failed to start game: ${response.statusText}`);
       }
-      
-      const newGame = response.data;
-      setGame(newGame);
-      return newGame;
     } catch (err) {
-      console.error("Error creating game:", err);
-      setError(err.response?.data || 'Failed to create game. Please try again.');
+      console.error("Error starting game:", err);
+      setError(`Failed to start game: ${err.message || 'Unknown error'}`);
       return null;
     }
   };
@@ -150,6 +180,58 @@ export const GameProvider = ({ children }) => {
       return null;
     }
   };
+
+  // Set user team both in backend and in user context
+  const setUserTeam = async (gameId, team) => {
+    if (!user) return null;
+    
+    try {
+      // Update team on server
+      const gameResponse = await changeTeam(gameId, user.id, team);
+      if (!gameResponse) {
+        throw new Error('Failed to update team on server');
+      }
+      
+      // Update user in local context/storage
+      const updatedUser = { ...user, team };
+      updateUser(updatedUser);
+      return updatedUser;
+    } catch (error) {
+      console.error('Error setting user team:', error);
+      return null;
+    }
+  };
+
+  // Fixed handleTeamChange function
+  const handleTeamChange = async (gameId, teamColor) => {
+    if (!user || !game) return;
+
+    try {
+      // Update user team on server and in context
+      const updatedUser = await setUserTeam(gameId, teamColor);
+      
+      if (!updatedUser) {
+        console.error('Failed to update user team');
+        return;
+      }
+
+      // Update local game state too
+      const updatedGame = { ...game };
+      
+      // Find and update the player in the game state
+      if (updatedGame.players) {
+        const playerIndex = updatedGame.players.findIndex(p => p.id === user.id);
+        if (playerIndex >= 0) {
+          updatedGame.players[playerIndex].team = teamColor;
+          setGame(updatedGame);
+        }
+      }
+      
+      console.log(`Team changed to ${teamColor} for user ${user.username}`);
+    } catch (error) {
+      console.error('Error changing team:', error);
+    }
+  };
   
   // Update the provider value with all functions
   return (
@@ -163,7 +245,9 @@ export const GameProvider = ({ children }) => {
         revealCard, 
         setSpymaster, 
         endTurn,
-        changeTeam
+        changeTeam,
+        setUserTeam,
+        handleTeamChange
       }}
     >
       {children}

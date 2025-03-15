@@ -371,6 +371,11 @@ li.spymaster {
   .card-grid {
     aspect-ratio: 5/5;
   }
+  
+  .game-chat-section {
+    margin-top: 1rem;
+    max-height: 300px;
+  }
 }
 
 @media (max-width: 576px) {
@@ -428,4 +433,50 @@ li.spymaster {
   0% { opacity: 0.7; }
   50% { opacity: 1; }
   100% { opacity: 0.7; }
+}
+
+/* Add this to your existing CSS */
+
+.game-chat-section {
+  margin-top: 2rem;
+  max-height: 400px;
+}
+
+/* You might need to adjust your responsive styles as well */
+@media (max-width: 992px) {
+  /* Your existing media query styles */
+  
+  .game-chat-section {
+    margin-top: 1rem;
+    max-height: 300px;
+  }
+}
+
+.game-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.chat-row {
+  max-height: 300px;
+}
+
+/* Team Chats */
+.team-chats {
+  display: flex;
+  margin-top: 1.5rem;
+  gap: 20px;
+}
+
+.blue-chat,
+.red-chat {
+  flex: 1;
+}
+
+/* Make chats stack on smaller screens */
+@media (max-width: 992px) {
+  .team-chats {
+    flex-direction: column;
+  }
 }
