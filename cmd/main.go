@@ -15,6 +15,7 @@ import (
 	gameService "codenames-game/internal/usecase/game"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
 
@@ -48,6 +49,9 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// Load environment variables
+	godotenv.Load()
+
 	// Load configuration
 	config := configs.LoadConfig()
 
@@ -61,6 +65,15 @@ func main() {
 	// Initialize handlers
 	gameHandler := api.NewGameHandler(gameSvc)
 	chatHandler := api.NewChatHandler(chatSvc)
+
+	// Create WebSocket handler
+	wsHandler := api.NewWebSocketHandler()
+
+	// Create game service with WebSocket handler
+	gameService := gameService.NewServiceWithWebSocket(gameRepo, wsHandler)
+
+	// Create handlers
+	gameHandler = api.NewGameHandler(gameService)
 
 	// Setup router
 	router := mux.NewRouter()
@@ -79,6 +92,9 @@ func main() {
 	// Chat routes
 	apiRouter.HandleFunc("/chat/send", chatHandler.SendMessage).Methods("POST")
 	apiRouter.HandleFunc("/chat/messages", chatHandler.GetMessages).Methods("GET")
+
+	// Register WebSocket routes directly on the main router (not under /api)
+	wsHandler.RegisterRoutes(router)
 
 	// CORS middleware
 	corsMiddleware := cors.New(cors.Options{

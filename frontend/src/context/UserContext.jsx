@@ -1,36 +1,32 @@
 import React, { createContext, useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
-// Create context
 export const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
-  // Initialize state with data from localStorage if available
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('codenames_user');
-    if (savedUser) {
-      return JSON.parse(savedUser);
-    }
-    return { 
-      id: `user-${Math.random().toString(36).substring(2, 9)}`,
-      username: '' 
+    return savedUser ? JSON.parse(savedUser) : {
+      id: `user-${uuidv4().substring(0, 8)}`,
+      username: '',
+      team: null
     };
   });
 
-  // Save user to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('codenames_user', JSON.stringify(user));
   }, [user]);
 
-  // Update username
-  const updateUsername = (newUsername) => {
-    setUser(prevUser => ({
-      ...prevUser,
-      username: newUsername
-    }));
+  const updateUsername = (username) => {
+    setUser(prevUser => ({ ...prevUser, username }));
+  };
+
+  const updateTeam = (team) => {
+    setUser(prevUser => ({ ...prevUser, team }));
   };
 
   return (
-    <UserContext.Provider value={{ user, updateUsername }}>
+    <UserContext.Provider value={{ user, updateUsername, updateTeam }}>
       {children}
     </UserContext.Provider>
   );

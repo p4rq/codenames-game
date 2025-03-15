@@ -4,7 +4,7 @@ import (
 	"codenames-game/internal/domain/game"
 )
 
-// Service defines the interface for game functionality
+// Service defines the game service interface
 type Service interface {
 	// CreateGame creates a new game
 	CreateGame(req game.CreateGameRequest) (*game.GameState, error)
@@ -23,4 +23,7 @@ type Service interface {
 
 	// EndTurn ends the current team's turn
 	EndTurn(gameID string, playerID string) (*game.GameState, error)
+
+	// ChangeTeam changes a player's team
+	ChangeTeam(gameID string, playerID string, team game.Team) (*game.GameState, error)
 }

@@ -50,6 +50,37 @@ export const GameProvider = ({ children }) => {
     }
   };
 
+  // Add the joinExistingGame function
+  const joinExistingGame = async (gameId, userId, username, team) => {
+    try {
+      clearError();
+      console.log("Joining game:", { gameId, userId, username, team });
+      
+      const response = await axios.post(`${API_URL}/game/join`, {
+        game_id: gameId,
+        player_id: userId,
+        username: username,
+        team: team
+      });
+      
+      console.log("Join game response:", response.data);
+      
+      if (!response.data || !response.data.id) {
+        console.error("Invalid game response:", response.data);
+        setError("Server returned an invalid game. Please try again.");
+        return null;
+      }
+      
+      const joinedGame = response.data;
+      setGame(joinedGame);
+      return joinedGame;
+    } catch (err) {
+      console.error("Error joining game:", err);
+      setError(err.response?.data || 'Failed to join game. Please try again.');
+      return null;
+    }
+  };
+
   // Other methods like getGameState also need the API prefix
   const getGameState = async (gameId) => {
     try {
@@ -104,17 +135,35 @@ export const GameProvider = ({ children }) => {
     }
   };
 
+  const changeTeam = async (gameId, playerId, team) => {
+    try {
+      clearError();
+      const response = await axios.post(`${API_URL}/game/change-team`, {
+        game_id: gameId,
+        player_id: playerId,
+        team: team
+      });
+      return response.data;
+    } catch (err) {
+      console.error("Error changing team:", err);
+      setError(err.response?.data || 'Failed to change team.');
+      return null;
+    }
+  };
+  
+  // Update the provider value with all functions
   return (
     <GameContext.Provider 
       value={{ 
         game, 
         error, 
         startNewGame, 
-        joinExistingGame: () => {}, // Implement this as needed
+        joinExistingGame,
         getGameState, 
         revealCard, 
         setSpymaster, 
-        endTurn 
+        endTurn,
+        changeTeam
       }}
     >
       {children}

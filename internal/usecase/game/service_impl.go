@@ -1,7 +1,7 @@
 package game
 
 import (
-	"codenames-game/internal/domain/game"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -10,6 +10,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	// Remove the API import and use the interfaces instead
+	"codenames-game/internal/domain/game"
+	"codenames-game/internal/interfaces/websocket" // Use the interface package
 )
 
 // Repository defines the storage operations for games
@@ -22,24 +26,30 @@ type Repository interface {
 
 // ServiceImpl implements the game Service interface
 type ServiceImpl struct {
-	games    map[string]*game.GameState
-	mutex    sync.RWMutex
-	wordList []string
-	repo     Repository // Optional repository for persistent storage
+	games     map[string]*game.GameState
+	mutex     sync.RWMutex
+	wordList  []string
+	repo      Repository                  // Optional repository for persistent storage
+	wsHandler websocket.UpdateBroadcaster // Use the interface instead of concrete type
 }
 
 // NewService creates a new game service with in-memory storage
 func NewService() Service {
-	return newService(nil)
+	return newService(nil, nil)
 }
 
 // NewServiceWithRepo creates a new game service with the provided repository
 func NewServiceWithRepo(repo Repository) Service {
-	return newService(repo)
+	return newService(repo, nil)
+}
+
+// NewServiceWithWebSocket creates a new game service with WebSocket support
+func NewServiceWithWebSocket(repo Repository, wsHandler websocket.UpdateBroadcaster) Service {
+	return newService(repo, wsHandler)
 }
 
 // Private helper to initialize a service
-func newService(repo Repository) *ServiceImpl {
+func newService(repo Repository, wsHandler websocket.UpdateBroadcaster) *ServiceImpl {
 	// Initialize with some default words for Codenames
 	wordList := []string{
 		"AFRICA", "AGENT", "AIR", "ALIEN", "ALPS", "AMAZON", "AMBULANCE", "AMERICA", "ANGEL",
@@ -53,9 +63,23 @@ func newService(repo Repository) *ServiceImpl {
 	}
 
 	return &ServiceImpl{
-		games:    make(map[string]*game.GameState),
-		wordList: wordList,
-		repo:     repo,
+		games:     make(map[string]*game.GameState),
+		wordList:  wordList,
+		repo:      repo,
+		mutex:     sync.RWMutex{},
+		wsHandler: wsHandler,
+	}
+}
+
+// broadcastGameUpdate sends game state updates to all connected clients
+func (s *ServiceImpl) broadcastGameUpdate(gameState *game.GameState) {
+	if s.wsHandler != nil {
+		gameData, err := json.Marshal(gameState)
+		if err != nil {
+			fmt.Printf("Error marshaling game state: %v\n", err)
+			return
+		}
+		s.wsHandler.BroadcastGameUpdate(gameState.ID, gameData)
 	}
 }
 
@@ -125,6 +149,9 @@ func (s *ServiceImpl) CreateGame(req game.CreateGameRequest) (*game.GameState, e
 		}
 	}
 
+	// Broadcast the new game
+	s.broadcastGameUpdate(newGame)
+
 	fmt.Printf("Created new game with ID: %s\n", newGame.ID) // Add debug output
 
 	return newGame, nil
@@ -189,6 +216,9 @@ func (s *ServiceImpl) JoinGame(req game.JoinGameRequest) (*game.GameState, error
 	}
 	gameState.Players = append(gameState.Players, player)
 	gameState.UpdatedAt = time.Now()
+
+	// Broadcast the update
+	s.broadcastGameUpdate(gameState)
 
 	return gameState, nil
 }
@@ -290,6 +320,9 @@ func (s *ServiceImpl) RevealCard(req game.RevealCardRequest) (*game.GameState, e
 		}
 	}
 
+	// Broadcast the update
+	s.broadcastGameUpdate(gameState)
+
 	return gameState, nil
 }
 
@@ -325,6 +358,9 @@ func (s *ServiceImpl) SetSpymaster(gameID string, playerID string) (*game.GameSt
 
 	player.IsSpymaster = true
 	gameState.UpdatedAt = time.Now()
+
+	// Broadcast the update
+	s.broadcastGameUpdate(gameState)
 
 	return gameState, nil
 }
@@ -370,6 +406,55 @@ func (s *ServiceImpl) EndTurn(gameID string, playerID string) (*game.GameState, 
 	}
 
 	gameState.UpdatedAt = time.Now()
+
+	// Broadcast the update
+	s.broadcastGameUpdate(gameState)
+
+	return gameState, nil
+}
+
+// ChangeTeam changes a player's team
+func (s *ServiceImpl) ChangeTeam(gameID string, playerID string, team game.Team) (*game.GameState, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	gameState, exists := s.games[gameID]
+	if !exists {
+		return nil, errors.New("game not found")
+	}
+
+	playerIndex := -1
+	for i, p := range gameState.Players {
+		if p.ID == playerID {
+			playerIndex = i
+			break
+		}
+	}
+
+	if playerIndex == -1 {
+		return nil, errors.New("player not found in this game")
+	}
+
+	// Don't allow spymasters to change teams
+	if gameState.Players[playerIndex].IsSpymaster {
+		return nil, errors.New("spymasters cannot change teams")
+	}
+
+	// Update the player's team
+	gameState.Players[playerIndex].Team = team
+	gameState.UpdatedAt = time.Now()
+
+	// Update repository if available
+	if s.repo != nil {
+		err := s.repo.Update(gameState)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Broadcast the update
+	s.broadcastGameUpdate(gameState)
+
 	return gameState, nil
 }
 

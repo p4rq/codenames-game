@@ -176,6 +176,35 @@ func (h *GameHandler) EndTurn(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(gameState)
 }
 
+// ChangeTeam handles the request to change a player's team
+func (h *GameHandler) ChangeTeam(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		GameID   string `json:"game_id"`
+		PlayerID string `json:"player_id"`
+		Team     string `json:"team"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate team value
+	if req.Team != string(game.RedTeam) && req.Team != string(game.BlueTeam) {
+		http.Error(w, "Invalid team selection", http.StatusBadRequest)
+		return
+	}
+
+	gameState, err := h.gameService.ChangeTeam(req.GameID, req.PlayerID, game.Team(req.Team))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(gameState)
+}
+
 // RegisterRoutes registers all game routes
 func (h *GameHandler) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/game/start", h.StartGame).Methods("POST")
@@ -184,4 +213,5 @@ func (h *GameHandler) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/game/reveal", h.RevealCard).Methods("POST")
 	r.HandleFunc("/api/game/set-spymaster", h.SetSpymaster).Methods("POST")
 	r.HandleFunc("/api/game/end-turn", h.EndTurn).Methods("POST")
+	r.HandleFunc("/game/change-team", h.ChangeTeam).Methods("POST")
 }
