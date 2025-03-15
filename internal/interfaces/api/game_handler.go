@@ -178,6 +178,10 @@ func (h *GameHandler) EndTurn(w http.ResponseWriter, r *http.Request) {
 
 // ChangeTeam handles the request to change a player's team
 func (h *GameHandler) ChangeTeam(w http.ResponseWriter, r *http.Request) {
+	// Add debug logging
+	log.Println("ChangeTeam handler called with URL:", r.URL.String())
+	log.Println("Request method:", r.Method)
+
 	var req struct {
 		GameID   string `json:"game_id"`
 		PlayerID string `json:"player_id"`
@@ -213,5 +217,5 @@ func (h *GameHandler) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/game/reveal", h.RevealCard).Methods("POST")
 	r.HandleFunc("/api/game/set-spymaster", h.SetSpymaster).Methods("POST")
 	r.HandleFunc("/api/game/end-turn", h.EndTurn).Methods("POST")
-	r.HandleFunc("/game/change-team", h.ChangeTeam).Methods("POST")
+	r.HandleFunc("/api/game/change-team", h.ChangeTeam).Methods("POST")
 }

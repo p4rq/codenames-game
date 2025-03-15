@@ -36,6 +36,12 @@ type Client struct {
 
 	// Game ID this client is connected to
 	gameID string
+
+	// Flag to track if the client is being unregistered
+	unregistering bool
+
+	// Mutex to protect the unregistering flag
+	mutex sync.Mutex
 }
 
 // Connection wraps a websocket connection
@@ -45,6 +51,12 @@ type Connection struct {
 
 	// Buffered channel of outbound messages
 	send chan []byte
+
+	// Mutex to protect operations on the connection
+	mutex sync.Mutex
+
+	// Flag to track if the connection is already closed
+	closed bool
 }
 
 // Hub maintains the set of active clients per game
@@ -69,18 +81,20 @@ type clientRegistration struct {
 // NewConnection creates a new connection
 func NewConnection(conn *websocket.Conn) *Connection {
 	return &Connection{
-		conn: conn,
-		send: make(chan []byte, 256),
+		conn:   conn,
+		send:   make(chan []byte, 256),
+		closed: false,
 	}
 }
 
 // NewClient creates a new client
 func NewClient(id string, conn *Connection, hub *Hub, gameID string) *Client {
 	return &Client{
-		ID:     id,
-		Conn:   conn,
-		hub:    hub,
-		gameID: gameID,
+		ID:            id,
+		Conn:          conn,
+		hub:           hub,
+		gameID:        gameID,
+		unregistering: false,
 	}
 }
 
@@ -110,8 +124,14 @@ func (h *Hub) UnregisterClient(client *Client) {
 // ReadPump pumps messages from the websocket connection to the hub
 func (c *Client) ReadPump() {
 	defer func() {
-		c.hub.unregister <- c
-		c.Conn.Close()
+		c.mutex.Lock()
+		if !c.unregistering {
+			c.unregistering = true
+			c.mutex.Unlock()
+			c.hub.unregister <- c
+		} else {
+			c.mutex.Unlock()
+		}
 	}()
 
 	c.Conn.conn.SetReadLimit(maxMessageSize)
@@ -138,7 +158,6 @@ func (c *Client) WritePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.Conn.Close()
 	}()
 
 	for {
@@ -177,6 +196,13 @@ func (c *Client) WritePump() {
 
 // WriteMessage sends a message to the client
 func (c *Connection) WriteMessage(message []byte) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if c.closed {
+		return &MessageBufferFullError{}
+	}
+
 	select {
 	case c.send <- message:
 		return nil
@@ -185,9 +211,18 @@ func (c *Connection) WriteMessage(message []byte) error {
 	}
 }
 
-// Close closes the connection
+// Update the Close method to avoid closing an already closed channel:
 func (c *Connection) Close() {
-	close(c.send)
+	// Use a mutex to protect access to the send channel
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// Only close if not already closed
+	if !c.closed {
+		close(c.send)
+		c.closed = true
+		c.conn.Close()
+	}
 }
 
 // MessageBufferFullError is returned when the message buffer is full
@@ -218,10 +253,12 @@ func (h *Hub) Run() {
 		case client := <-h.unregister:
 			// Unregister client from all games
 			h.mutex.Lock()
+			clientFound := false
 			for gameID, clients := range h.gameClients {
 				if _, ok := clients[client]; ok {
 					delete(h.gameClients[gameID], client)
 					log.Printf("Client %s unregistered from game %s", client.ID, client.gameID)
+					clientFound = true
 
 					// Clean up empty game rooms
 					if len(h.gameClients[gameID]) == 0 {
@@ -231,6 +268,11 @@ func (h *Hub) Run() {
 				}
 			}
 			h.mutex.Unlock()
+
+			// Only close the connection if the client was found and unregistered
+			if clientFound {
+				client.Conn.Close()
+			}
 		}
 	}
 }
@@ -245,11 +287,20 @@ func (h *Hub) Broadcast(gameID string, message []byte) {
 		return
 	}
 
+	log.Printf("Broadcasting to %d clients in game %s", len(clients), gameID)
+
 	for client := range clients {
 		err := client.Conn.WriteMessage(message)
 		if err != nil {
 			log.Printf("Error broadcasting to client %s: %v", client.ID, err)
-			h.unregister <- client
+			client.mutex.Lock()
+			if !client.unregistering {
+				client.unregistering = true
+				client.mutex.Unlock()
+				h.unregister <- client
+			} else {
+				client.mutex.Unlock()
+			}
 			client.Conn.Close()
 		}
 	}

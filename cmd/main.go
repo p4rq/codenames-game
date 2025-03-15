@@ -58,22 +58,18 @@ func main() {
 	// Initialize repositories
 	gameRepo := persistence.NewGameRepository()
 
-	// Initialize services
-	gameSvc := gameService.NewServiceWithRepo(gameRepo)
-	chatSvc := chatService.NewChatService(nil)
-
-	// Initialize handlers
-	gameHandler := api.NewGameHandler(gameSvc)
-	chatHandler := api.NewChatHandler(chatSvc)
-
-	// Create WebSocket handler
+	// First, create the WebSocket handler
 	wsHandler := api.NewWebSocketHandler()
 
-	// Create game service with WebSocket handler
-	gameService := gameService.NewServiceWithWebSocket(gameRepo, wsHandler)
+	// Initialize chat service
+	chatSvc := chatService.NewChatService(nil)
+	chatHandler := api.NewChatHandler(chatSvc)
 
-	// Create handlers
-	gameHandler = api.NewGameHandler(gameService)
+	// Create game service with WebSocket handler
+	gameSvc := gameService.NewServiceWithWebSocket(gameRepo, wsHandler)
+
+	// IMPORTANT: Create game handler just once with the WebSocket-enabled service
+	gameHandler := api.NewGameHandler(gameSvc)
 
 	// Setup router
 	router := mux.NewRouter()
@@ -88,6 +84,8 @@ func main() {
 	apiRouter.HandleFunc("/game/reveal", gameHandler.RevealCard).Methods("POST")
 	apiRouter.HandleFunc("/game/set-spymaster", gameHandler.SetSpymaster).Methods("POST")
 	apiRouter.HandleFunc("/game/end-turn", gameHandler.EndTurn).Methods("POST")
+	// Add the missing change-team route
+	apiRouter.HandleFunc("/game/change-team", gameHandler.ChangeTeam).Methods("POST")
 
 	// Chat routes
 	apiRouter.HandleFunc("/chat/send", chatHandler.SendMessage).Methods("POST")
@@ -96,28 +94,41 @@ func main() {
 	// Register WebSocket routes directly on the main router (not under /api)
 	wsHandler.RegisterRoutes(router)
 
-	// CORS middleware
+	// CORS middleware with more permissive settings for development
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"},
+		ExposedHeaders:   []string{"Content-Length"},
 		AllowCredentials: true,
+		MaxAge:           300,   // Maximum value not ignored by any of major browsers
+		Debug:            false, // Set to false to reduce log noise
 	})
 
 	// SPA handler should come AFTER the API routes
 	spa := spaHandler{staticPath: "frontend/build", indexPath: "index.html"}
 	router.PathPrefix("/").Handler(spa)
 
+	// Add middleware to log all incoming requests
+	loggedRouter := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Request: %s %s", r.Method, r.URL.Path)
+		router.ServeHTTP(w, r)
+	})
+
+	// Apply CORS middleware to both API routes and WebSocket routes
+	// Use a handler chain: CORS -> Logging -> Router
+	corsHandler := corsMiddleware.Handler(loggedRouter)
+
 	// Setup HTTP server with proper timeouts from config
 	server := &http.Server{
 		Addr:         ":" + config.Server.Port, // Use Server.Port from the nested structure
-		Handler:      corsMiddleware.Handler(router),
+		Handler:      corsHandler,
 		ReadTimeout:  time.Duration(config.Server.ReadTimeout) * time.Second,
 		WriteTimeout: time.Duration(config.Server.WriteTimeout) * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
 	// Start the server
-	fmt.Printf("Starting Codenames Game server on :%s\n", config.Server.Port) // Use Server.Port here too
+	fmt.Printf("Starting Codenames Game server on :%s\n", config.Server.Port)
 	log.Fatal(server.ListenAndServe())
 }

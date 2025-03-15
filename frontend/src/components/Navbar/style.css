@@ -1,7 +1,8 @@
 .navbar {
-  background-color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: #333;
+  color: #fff;
   padding: 0.75rem 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -9,16 +10,20 @@
 }
 
 .navbar.dark {
-  background-color: #1a1a2e;
+  background-color: #1a1a1a;
   color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.navbar.light {
+  background-color: #f8f9fa;
+  color: #333333;
 }
 
 .navbar-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
@@ -31,6 +36,12 @@
   font-size: 1.5rem;
   margin: 0;
   font-weight: 700;
+}
+
+/* Ensure links have proper contrast */
+.navbar a {
+  color: #fff;
+  text-decoration: none;
 }
 
 .navbar-actions {
@@ -60,6 +71,7 @@
   background-color: rgba(255, 255, 255, 0.1);
 }
 
+/* User menu styling with better contrast */
 .user-menu {
   position: relative;
 }
@@ -67,17 +79,22 @@
 .user-menu-button {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #e0e0e0;
+  gap: 8px;
+  background: none;
+  border: 1px solid;
   border-radius: 4px;
-  background-color: transparent;
+  padding: 8px 12px;
+  color: #fff;
   cursor: pointer;
-  transition: all 0.2s;
+  font-size: 14px;
 }
 
 .dark .user-menu-button {
-  border-color: #444;
+  border-color: #555;
+}
+
+.light .user-menu-button {
+  border-color: #ddd;
 }
 
 .user-menu-button:hover {
@@ -89,17 +106,19 @@
 }
 
 .team-indicator {
-  width: 10px;
-  height: 10px;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
+  margin: 0 8px;
 }
 
 .team-indicator.red {
-  background-color: #e74c3c;
+  background-color: #dc3545;
 }
 
 .team-indicator.blue {
-  background-color: #3498db;
+  background-color: #007bff;
 }
 
 .team-indicator.neutral {
@@ -111,16 +130,20 @@
   margin-left: 0.25rem;
 }
 
+/* Settings dropdown with better styling */
 .settings-dropdown {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: 100%;
   right: 0;
-  background-color: #ffffff;
+  background-color: #fff;
+  border: 1px solid #ddd;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  padding: 1rem;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  padding: 16px;
   width: 250px;
-  z-index: 101;
+  z-index: 10;
+  color: #333; /* Ensure dropdown text is always dark */
+  margin-top: 4px;
 }
 
 .dark .settings-dropdown {
@@ -129,7 +152,7 @@
 }
 
 .settings-form {
-  margin-bottom: 1rem;
+  margin-bottom: 16px;
 }
 
 .settings-dropdown label {
@@ -139,15 +162,21 @@
   font-weight: 600;
 }
 
+.settings-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
 .input-group {
   display: flex;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .input-group input {
   flex: 1;
-  padding: 0.5rem;
-  border: 1px solid #e0e0e0;
+  padding: 8px;
+  border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 0.85rem;
 }
@@ -176,30 +205,47 @@
   background-color: #2980b9;
 }
 
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 8px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
 .team-selection {
+  margin-top: 16px;
   margin-bottom: 1rem;
 }
 
+.team-selection label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+/* Team selection buttons */
 .team-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .team-btn {
   flex: 1;
-  padding: 0.5rem;
-  border: 1px solid;
+  padding: 8px 12px;
+  border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 0.85rem;
+  font-weight: 500;
   transition: all 0.2s;
 }
 
 .team-btn.red {
-  border-color: #e74c3c;
-  color: #e74c3c;
-  background-color: transparent;
+  background-color: #ffdddd;
+  color: #c0392b;
+  border: 1px solid #e74c3c;
 }
 
 .team-btn.red:hover, .team-btn.red.active {
@@ -208,14 +254,35 @@
 }
 
 .team-btn.blue {
-  border-color: #3498db;
-  color: #3498db;
-  background-color: transparent;
+  background-color: #d4e6f1;
+  color: #2980b9;
+  border: 1px solid #3498db;
 }
 
 .team-btn.blue:hover, .team-btn.blue.active {
   background-color: #3498db;
   color: white;
+}
+
+.team-btn.active {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 2px currentColor;
+  font-weight: bold;
+}
+
+.team-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.close-settings {
+  width: 100%;
+  margin-top: 16px;
+  padding: 8px;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .close-settings {
@@ -226,6 +293,29 @@
 
 .close-settings:hover {
   background-color: #7f8c8d;
+}
+
+/* Light mode specific styles */
+.navbar:not(.dark) {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.navbar:not(.dark) a {
+  color: #333;
+}
+
+.navbar:not(.dark) .user-menu-button {
+  color: #333;
+  border-color: #ddd;
+}
+
+.text-light {
+  color: #ffffff !important;
+}
+
+.text-dark {
+  color: #333333 !important;
 }
 
 @media (max-width: 576px) {

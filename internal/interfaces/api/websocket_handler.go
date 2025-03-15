@@ -39,7 +39,9 @@ func NewWebSocketHandler() *WebSocketHandler {
 
 // RegisterRoutes registers the WebSocket routes
 func (h *WebSocketHandler) RegisterRoutes(r *mux.Router) {
+	// Make sure this matches what the frontend expects
 	r.HandleFunc("/ws/game/{gameID}", h.ServeWS)
+	log.Println("WebSocket routes registered at /ws/game/{gameID}")
 }
 
 // ServeWS handles WebSocket requests from clients
@@ -59,6 +61,8 @@ func (h *WebSocketHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("WebSocket connection request for client %s in game %s", clientID, gameID)
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Error upgrading to WebSocket: %v", err)
@@ -69,7 +73,6 @@ func (h *WebSocketHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	client := customWs.NewClient(clientID, wsConn, h.hub, gameID)
 
 	// Register client with the hub
-	// You need to use a public method instead of accessing private fields
 	h.hub.RegisterClient(client, gameID)
 
 	// Start goroutines for reading and writing
@@ -81,5 +84,6 @@ func (h *WebSocketHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 // BroadcastGameUpdate sends a game update to all clients in a game
 func (h *WebSocketHandler) BroadcastGameUpdate(gameID string, data []byte) {
+	log.Printf("Broadcasting update for game %s", gameID)
 	h.hub.Broadcast(gameID, data)
 }
