@@ -1,75 +1,58 @@
 import React, { createContext, useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
 export const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Load user from localStorage on mount
-  useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.error('Failed to parse saved user', e);
-        localStorage.removeItem('user');
+  const [user, setUser] = useState(() => {
+    // Try to load user from localStorage on initial render
+    try {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        return JSON.parse(savedUser);
       }
+    } catch (error) {
+      console.error('Error loading user from localStorage:', error);
     }
-    setLoading(false);
-  }, []);
-
-  // Create a user if one doesn't exist
-  const createUser = (username) => {
-    const newUser = {
-      id: `user-${Math.random().toString(36).substring(2, 10)}`,
-      username,
-      createdAt: new Date().toISOString()
+    
+    // Default user with random ID
+    return {
+      id: `user-${uuidv4().substring(0, 8)}`,
+      username: 'Guest',
     };
-    setUser(newUser);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    return newUser;
-  };
+  });
 
-  // Update username only
-  const updateUsername = (username) => {
-    if (!user) {
-      return createUser(username);
+  // Save user to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('user', JSON.stringify(user));
+      console.log("UserContext - User saved to localStorage:", user);
+    } catch (error) {
+      console.error('Error saving user to localStorage:', error);
     }
-    
-    const updatedUser = { ...user, username };
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    return updatedUser;
+  }, [user]);
+
+  // Function to update user information
+  const updateUser = (updatedData) => {
+    setUser(prevUser => {
+      const newUser = { ...prevUser, ...updatedData };
+      console.log("UserContext - Updating user:", prevUser, "→", newUser);
+      return newUser;
+    });
   };
 
-  // Update any user properties
-  const updateUser = (updates) => {
-    if (!user) return null;
-    
-    const updatedUser = { ...user, ...updates };
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    return updatedUser;
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
+  // Update username specifically
+  const updateUsername = (username) => {
+    updateUser({ username });
   };
 
   return (
-    <UserContext.Provider
-      value={{
-        user,
-        loading,
-        createUser,
-        updateUsername,
-        updateUser,
-        logout
-      }}
-    >
+    <UserContext.Provider value={{ 
+      user, 
+      setUser, 
+      updateUser, 
+      updateUsername 
+    }}>
       {children}
     </UserContext.Provider>
   );

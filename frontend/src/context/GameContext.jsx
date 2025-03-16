@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { UserContext } from './UserContext';
 
@@ -41,18 +41,12 @@ axios.interceptors.response.use(
 );
 
 export const GameProvider = ({ children }) => {
-  const { user, updateUser } = useContext(UserContext);
+  const [game, setGame] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [game, setGame] = useState({
-    id: null,
-    cards: [],
-    players: [],
-    current_turn: null,
-    red_cards_left: 0,
-    blue_cards_left: 0,
-    winning_team: null
-  });
   
+  const { user, updateUser } = useContext(UserContext);
+
   const clearError = () => setError(null);
 
   const startNewGame = async (playerId, username) => {
@@ -165,19 +159,73 @@ export const GameProvider = ({ children }) => {
     }
   };
 
+  // Update the changeTeam function to immediately update UI
   const changeTeam = async (gameId, playerId, team) => {
     try {
-      clearError();
-      const response = await axios.post(`${API_URL}/game/change-team`, {
+      // IMPORTANT: First update the user context before API call for immediate UI feedback
+      if (user && user.id === playerId) {
+        console.log(`Immediately updating user context with new team: ${team}`);
+        
+        // Update local state right away (don't wait for API)
+        updateUser({
+          ...user,
+          team: team
+        });
+        
+        // Update localStorage right away too
+        try {
+          const userData = JSON.parse(localStorage.getItem('user'));
+          if (userData) {
+            userData.team = team;
+            localStorage.setItem('user', JSON.stringify(userData));
+            console.log('Updated user in localStorage with new team:', userData);
+          }
+        } catch (e) {
+          console.error('Error updating localStorage:', e);
+        }
+        
+        // If we have game state with players, update that too for immediate UI feedback
+        if (game && game.players) {
+          const updatedPlayers = game.players.map(player => 
+            player.id === playerId 
+              ? { ...player, team: team } 
+              : player
+          );
+          
+          const updatedGame = { ...game, players: updatedPlayers };
+          setGame(updatedGame);
+          console.log('Updated game state with new team for player');
+        }
+      }
+  
+      // Now make the API call (even if it fails, UI is already updated)
+      console.log(`API Request: "/api/game/change-team"`, {
+        method: 'post',
+        url: '/api/game/change-team',
+        data: {
+          game_id: gameId,
+          player_id: playerId,
+          team: team
+        }
+      });
+  
+      const response = await axios.post('/api/game/change-team', {
         game_id: gameId,
         player_id: playerId,
         team: team
       });
-      return response.data;
+      
+      // If API call succeeds, update with server response
+      if (response.data) {
+        setGame(response.data);
+      }
+      
+      return true;
     } catch (err) {
       console.error("Error changing team:", err);
-      setError(err.response?.data || 'Failed to change team.');
-      return null;
+      // Even if API call fails, we don't revert the UI change
+      // to prevent UI flickering
+      return false;
     }
   };
 
@@ -188,17 +236,39 @@ export const GameProvider = ({ children }) => {
     try {
       // Update team on server
       const gameResponse = await changeTeam(gameId, user.id, team);
-      if (!gameResponse) {
-        throw new Error('Failed to update team on server');
+      
+      // Force user context update even if server call fails
+      updateUser({ ...user, team: team });
+      
+      // Also update the user in localStorage for persistence
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user'));
+        if (storedUser) {
+          localStorage.setItem('user', JSON.stringify({ ...storedUser, team: team }));
+        }
+      } catch (e) {
+        console.error("Error updating user in localStorage:", e);
       }
       
-      // Update user in local context/storage
-      const updatedUser = { ...user, team };
-      updateUser(updatedUser);
-      return updatedUser;
+      // Also update the game state if server response was successful
+      if (gameResponse) {
+        setGame(gameResponse);
+      } else {
+        // If server update failed but we still want UI to update, manually update the game state
+        if (game && game.players) {
+          const updatedPlayers = game.players.map(p => 
+            p.id === user.id ? { ...p, team: team } : p
+          );
+          setGame({ ...game, players: updatedPlayers });
+        }
+      }
+      
+      console.log(`Team changed to ${team} for user ${user.username}`);
+      return true;
     } catch (error) {
-      console.error('Error setting user team:', error);
-      return null;
+      console.error("Error setting user team:", error);
+      setError(`Failed to change team: ${error.message}`);
+      return false;
     }
   };
 
@@ -238,7 +308,11 @@ export const GameProvider = ({ children }) => {
     <GameContext.Provider 
       value={{ 
         game, 
+        setGame,
+        loading,
         error, 
+        clearError,
+        setError,
         startNewGame, 
         joinExistingGame,
         getGameState, 

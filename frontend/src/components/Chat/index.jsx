@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { UserContext } from '../../context/UserContext';
-import { GameContext } from '../../context/GameContext';  // Add this import
-
+import { GameContext } from '../../context/GameContext';
 import { getMessages, sendMessage } from '../../services/chatService';
 import './Chat.css';
 
 const Chat = ({ gameId, team }) => {
   const { user } = useContext(UserContext);
-  const { game } = useContext(GameContext); // Add this to get game context
+  const { game } = useContext(GameContext);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [canAccess, setCanAccess] = useState(false); // New state to track access
   const messagesEndRef = useRef(null);
   
   // Debug log to see the user and team values
@@ -20,37 +20,40 @@ const Chat = ({ gameId, team }) => {
     console.log("Chat component team:", team);
   }, [user, team]);
   
-  // TEMPORARY: Force team access for debugging
+  // Evaluate access when user or team changes
   useEffect(() => {
-    if (user && !user.team) {
-      console.log("TEMPORARY: Forcing user team for debug");
-      localStorage.setItem('user', JSON.stringify({...user, team: 'red'}));
+    // Calculate if user can access this chat
+    const hasAccess = checkChatAccess();
+    setCanAccess(hasAccess);
+    
+    // If access changed from false to true, fetch messages
+    if (hasAccess && gameId) {
+      fetchChatMessages();
     }
-  }, [user]);
+  }, [user, team, game]); // Re-evaluate when user, team, or game changes
   
   // Fetch messages on mount and periodically
   useEffect(() => {
-    if (!gameId) return;
+    if (!gameId || !canAccess) return;
     
-    const fetchMessages = async () => {
-      try {
-        const data = await getMessages(gameId, team);
-        setMessages(data || []);
-        setError(null);
-      } catch (err) {
-        console.error('Failed to load messages:', err);
-        setError('Failed to load messages');
-      }
-    };
+    fetchChatMessages();
     
-    // Initial fetch
-    fetchMessages();
-    
-    // Set up polling
-    const interval = setInterval(fetchMessages, 3000);
+    // Set up polling only if user has access
+    const interval = setInterval(fetchChatMessages, 3000);
     
     return () => clearInterval(interval);
-  }, [gameId, team]);
+  }, [gameId, team, canAccess]); // Add canAccess as dependency
+  
+  const fetchChatMessages = async () => {
+    try {
+      const data = await getMessages(gameId, team);
+      setMessages(data || []);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to load messages:', err);
+      setError('Failed to load messages');
+    }
+  };
   
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -69,8 +72,7 @@ const Chat = ({ gameId, team }) => {
       setNewMessage('');
       
       // Fetch updated messages
-      const data = await getMessages(gameId, team);
-      setMessages(data || []);
+      fetchChatMessages();
     } catch (err) {
       setError('Failed to send message');
       console.error(err);
@@ -79,9 +81,8 @@ const Chat = ({ gameId, team }) => {
     }
   };
 
-  // Update the canAccessChat function
-
-  const canAccessChat = () => {
+  // Update the canAccessChat function to be more reliable
+  const checkChatAccess = () => {
     // Debug logging
     console.log("canAccessChat check:", {
       user,
@@ -100,13 +101,25 @@ const Chat = ({ gameId, team }) => {
       return false;
     }
     
-    // If user doesn't have a team directly, check for team in game players
+    // Try to get user's team from different sources
     let userTeam = user.team;
     if (!userTeam && game && game.players) {
       // Find the user in the game's players
       const playerInGame = game.players.find(p => p.id === user.id);
       if (playerInGame) {
         userTeam = playerInGame.team;
+      }
+    }
+    
+    // Another fallback - check localStorage directly
+    if (!userTeam) {
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user'));
+        if (storedUser && storedUser.team) {
+          userTeam = storedUser.team;
+        }
+      } catch (e) {
+        console.error("Error parsing user from localStorage:", e);
       }
     }
     
@@ -134,7 +147,7 @@ const Chat = ({ gameId, team }) => {
     <div className={`chat-container ${team ? `team-${team.toLowerCase()}` : ''}`}>
       <h3>{team ? `${team} Team Chat` : 'Game Chat'}</h3>
       
-      {!canAccessChat() ? (
+      {!canAccess ? (
         <p className="access-denied">You don't have access to this team's chat</p>
       ) : (
         <>

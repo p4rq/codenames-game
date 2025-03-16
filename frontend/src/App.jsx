@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { UserProvider } from './context/UserContext';
 import { GameProvider } from './context/GameContext';
-import HomePage from './pages/Home';
-import GamePage from './pages/Game';
-import NotFoundPage from './pages/NotFound';
+import Home from './components/Home';
+import Game from './components/Game/Game';
 import Navbar from './components/Navbar';
 import './App.css';
 
 function App() {
-  const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem('darkMode') === 'true'
-  );
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
 
   useEffect(() => {
-    localStorage.setItem('darkMode', darkMode);
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
     if (darkMode) {
       document.body.classList.add('dark-mode');
     } else {
@@ -23,37 +23,21 @@ function App() {
   }, [darkMode]);
 
   const toggleDarkMode = () => {
-    setDarkMode(prevMode => !prevMode);
+    setDarkMode(!darkMode);
   };
 
   return (
     <UserProvider>
       <GameProvider>
-        <Router>
-          <div className={`app ${darkMode ? 'dark-mode' : ''}`}>
+        <BrowserRouter>
+          <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+          <div className={`app-container ${darkMode ? 'dark-mode' : ''}`}>
             <Routes>
-              <Route 
-                path="/" 
-                element={<>
-                  <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-                  <HomePage />
-                </>} 
-              />
-              <Route 
-                path="/game/:gameId" 
-                element={({ match }) => <>
-                  <Navbar 
-                    darkMode={darkMode} 
-                    toggleDarkMode={toggleDarkMode} 
-                    gameId={match?.params?.gameId} 
-                  />
-                  <GamePage />
-                </>} 
-              />
-              <Route path="*" element={<NotFoundPage />} />
+              <Route path="/" element={<Home />} />
+              <Route path="/game/:gameId" element={<Game />} />
             </Routes>
           </div>
-        </Router>
+        </BrowserRouter>
       </GameProvider>
     </UserProvider>
   );

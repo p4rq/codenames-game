@@ -85,7 +85,7 @@ func main() {
 	apiRouter.HandleFunc("/game/reveal", gameHandler.RevealCard).Methods("POST")
 	apiRouter.HandleFunc("/game/set-spymaster", gameHandler.SetSpymaster).Methods("POST")
 	apiRouter.HandleFunc("/game/end-turn", gameHandler.EndTurn).Methods("POST")
-
+	apiRouter.HandleFunc("/game/change-team", gameHandler.ChangeTeam).Methods("POST")
 	// Chat routes
 	apiRouter.HandleFunc("/games/{gameId}/messages", chatHandler.GetGameMessages).Methods("GET")
 	apiRouter.HandleFunc("/games/{gameId}/messages", chatHandler.SendGameMessage).Methods("POST")

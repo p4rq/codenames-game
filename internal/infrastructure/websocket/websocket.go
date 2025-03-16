@@ -45,6 +45,12 @@ type Connection struct {
 
 	// Buffered channel of outbound messages
 	send chan []byte
+
+	// Add this field to track if connection is closed
+	closed bool
+
+	// Add mutex for thread safety
+	mutex sync.Mutex
 }
 
 // Hub maintains the set of active clients per game
@@ -69,8 +75,10 @@ type clientRegistration struct {
 // NewConnection creates a new connection
 func NewConnection(conn *websocket.Conn) *Connection {
 	return &Connection{
-		conn: conn,
-		send: make(chan []byte, 256),
+		conn:   conn,
+		send:   make(chan []byte, 256),
+		closed: false,
+		mutex:  sync.Mutex{},
 	}
 }
 
@@ -135,6 +143,14 @@ func (c *Client) ReadPump() {
 
 // WritePump pumps messages from the hub to the websocket connection
 func (c *Client) WritePump() {
+	defer func() {
+		// Recover from panics
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in WritePump: %v", r)
+		}
+		c.Conn.Close()
+	}()
+
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -144,6 +160,15 @@ func (c *Client) WritePump() {
 	for {
 		select {
 		case message, ok := <-c.Conn.send:
+			c.Conn.mutex.Lock()
+			isClosed := c.Conn.closed
+			c.Conn.mutex.Unlock()
+
+			if !ok || isClosed {
+				// Channel closed or connection marked as closed
+				return
+			}
+
 			c.Conn.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// The hub closed the channel
@@ -187,7 +212,22 @@ func (c *Connection) WriteMessage(message []byte) error {
 
 // Close closes the connection
 func (c *Connection) Close() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// Check if already closed
+	if c.closed {
+		return // Already closed, do nothing
+	}
+
+	// Mark as closed and close the send channel safely
+	c.closed = true
 	close(c.send)
+
+	// Close the underlying connection
+	c.conn.Close()
+
+	log.Println("WebSocket connection closed safely")
 }
 
 // MessageBufferFullError is returned when the message buffer is full

@@ -103,6 +103,38 @@
   font-size: 18px;
 }
 
+/* Add these styles for connection indicators */
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  font-size: 0.8em;
+}
+
+.connection-status.connected {
+  color: #2ecc71;
+}
+
+.connection-status.disconnected {
+  color: #e74c3c;
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+.status-indicator.connected {
+  background-color: #2ecc71;
+}
+
+.status-indicator.disconnected {
+  background-color: #e74c3c;
+}
+
 @media (max-width: 768px) {
   .game-content {
     grid-template-columns: 1fr;
