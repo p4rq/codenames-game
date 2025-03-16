@@ -260,47 +260,54 @@ const GamePage = () => {
         
         <div className="game-layout">
           <div className="three-column-layout">
-            {/* BLUE TEAM PANEL */}
-            <div className="team-panel blue-panel">
-              <div className="team-header blue">
-                <h2>Blue Team</h2>
-                <div className={`team-status ${gameState.current_turn === 'blue' ? 'active' : ''}`}>
-                  {gameState.blue_cards_left} cards left
-                  {gameState.current_turn === 'blue' && <span className="turn-indicator">Current Turn</span>}
+            {/* BLUE TEAM PANEL WITH CHAT */}
+            <div className="team-section blue-section">
+              <div className="team-panel blue-panel">
+                <div className="team-header blue">
+                  <h2>Blue Team</h2>
+                  <div className={`team-status ${gameState.current_turn === 'blue' ? 'active' : ''}`}>
+                    {gameState.blue_cards_left} cards left
+                    {gameState.current_turn === 'blue' && <span className="turn-indicator">Current Turn</span>}
+                  </div>
                 </div>
+                
+                <div className="team-players">
+                  <ul>
+                    {gameState?.players
+                      ?.filter(p => p.team === 'blue')
+                      ?.map(p => (
+                        <li key={p.id} className={`
+                          ${p.id === user?.id ? 'current-player' : ''}
+                          ${p.is_spymaster ? 'spymaster' : ''}
+                        `}>
+                          {p.username} 
+                          {p.is_spymaster && <span className="role-badge">Spymaster</span>}
+                          {p.id === user?.id && <span className="you-badge">You</span>}
+                        </li>
+                      ))}
+                    {gameState?.players?.filter(p => p.team === 'blue').length === 0 && (
+                      <li className="empty-team">No players yet</li>
+                    )}
+                  </ul>
+                </div>
+                
+                {currentPlayer?.team === 'blue' && (
+                  <div className="team-actions">
+                    {!currentPlayer.is_spymaster && !isGameOver && (
+                      <button className="spymaster-btn" onClick={handleSetSpymaster}>Become Spymaster</button>
+                    )}
+                    
+                    {isCurrentPlayerTurn && !isGameOver && (
+                      <button className="end-turn-btn" onClick={handleEndTurn}>End Turn</button>
+                    )}
+                  </div>
+                )}
               </div>
               
-              <div className="team-players">
-                <ul>
-                  {gameState?.players
-                    ?.filter(p => p.team === 'blue')
-                    ?.map(p => (
-                      <li key={p.id} className={`
-                        ${p.id === user?.id ? 'current-player' : ''}
-                        ${p.is_spymaster ? 'spymaster' : ''}
-                      `}>
-                        {p.username} 
-                        {p.is_spymaster && <span className="role-badge">Spymaster</span>}
-                        {p.id === user?.id && <span className="you-badge">You</span>}
-                      </li>
-                    ))}
-                  {gameState?.players?.filter(p => p.team === 'blue').length === 0 && (
-                    <li className="empty-team">No players yet</li>
-                  )}
-                </ul>
+              {/* Blue team chat directly below blue team panel */}
+              <div className="team-chat blue-chat">
+                <Chat gameId={gameId} team="blue" />
               </div>
-              
-              {currentPlayer?.team === 'blue' && (
-                <div className="team-actions">
-                  {!currentPlayer.is_spymaster && !isGameOver && (
-                    <button className="spymaster-btn" onClick={handleSetSpymaster}>Become Spymaster</button>
-                  )}
-                  
-                  {isCurrentPlayerTurn && !isGameOver && (
-                    <button className="end-turn-btn" onClick={handleEndTurn}>End Turn</button>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* MIDDLE SECTION - CARD GRID */}
@@ -326,57 +333,54 @@ const GamePage = () => {
               </div>
             </div>
 
-            {/* RED TEAM PANEL */}
-            <div className="team-panel red-panel">
-              <div className="team-header red">
-                <h2>Red Team</h2>
-                <div className={`team-status ${gameState.current_turn === 'red' ? 'active' : ''}`}>
-                  {gameState.red_cards_left} cards left
-                  {gameState.current_turn === 'red' && <span className="turn-indicator">Current Turn</span>}
+            {/* RED TEAM PANEL WITH CHAT */}
+            <div className="team-section red-section">
+              <div className="team-panel red-panel">
+                <div className="team-header red">
+                  <h2>Red Team</h2>
+                  <div className={`team-status ${gameState.current_turn === 'red' ? 'active' : ''}`}>
+                    {gameState.red_cards_left} cards left
+                    {gameState.current_turn === 'red' && <span className="turn-indicator">Current Turn</span>}
+                  </div>
                 </div>
+                
+                <div className="team-players">
+                  <ul>
+                    {gameState?.players
+                      ?.filter(p => p.team === 'red')
+                      ?.map(p => (
+                        <li key={p.id} className={`
+                          ${p.id === user?.id ? 'current-player' : ''}
+                          ${p.is_spymaster ? 'spymaster' : ''}
+                        `}>
+                          {p.username}
+                          {p.is_spymaster && <span className="role-badge">Spymaster</span>}
+                          {p.id === user?.id && <span className="you-badge">You</span>}
+                        </li>
+                      ))}
+                    {gameState?.players?.filter(p => p.team === 'red').length === 0 && (
+                      <li className="empty-team">No players yet</li>
+                    )}
+                  </ul>
+                </div>
+                
+                {currentPlayer?.team === 'red' && (
+                  <div className="team-actions">
+                    {!currentPlayer.is_spymaster && !isGameOver && (
+                      <button className="spymaster-btn" onClick={handleSetSpymaster}>Become Spymaster</button>
+                    )}
+                    
+                    {isCurrentPlayerTurn && !isGameOver && (
+                      <button className="end-turn-btn" onClick={handleEndTurn}>End Turn</button>
+                    )}
+                  </div>
+                )}
               </div>
               
-              <div className="team-players">
-                <ul>
-                  {gameState?.players
-                    ?.filter(p => p.team === 'red')
-                    ?.map(p => (
-                      <li key={p.id} className={`
-                        ${p.id === user?.id ? 'current-player' : ''}
-                        ${p.is_spymaster ? 'spymaster' : ''}
-                      `}>
-                        {p.username}
-                        {p.is_spymaster && <span className="role-badge">Spymaster</span>}
-                        {p.id === user?.id && <span className="you-badge">You</span>}
-                      </li>
-                    ))}
-                  {gameState?.players?.filter(p => p.team === 'red').length === 0 && (
-                    <li className="empty-team">No players yet</li>
-                  )}
-                </ul>
+              {/* Red team chat directly below red team panel */}
+              <div className="team-chat red-chat">
+                <Chat gameId={gameId} team="red" />
               </div>
-              
-              {currentPlayer?.team === 'red' && (
-                <div className="team-actions">
-                  {!currentPlayer.is_spymaster && !isGameOver && (
-                    <button className="spymaster-btn" onClick={handleSetSpymaster}>Become Spymaster</button>
-                  )}
-                  
-                  {isCurrentPlayerTurn && !isGameOver && (
-                    <button className="end-turn-btn" onClick={handleEndTurn}>End Turn</button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="team-chats">
-            <div className="blue-chat">
-              <Chat gameId={gameId} team="blue" />
-            </div>
-            
-            <div className="red-chat">
-              <Chat gameId={gameId} team="red" />
             </div>
           </div>
         </div>
