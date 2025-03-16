@@ -127,11 +127,11 @@ func (s *ServiceImpl) CreateGame(req game.CreateGameRequest) (*game.GameState, e
 		UpdatedAt:     time.Now(),
 	}
 
-	// Add the creator as the first player
+	// Add the creator as the first player - CHANGED TO SPECTATOR
 	creator := game.Player{
 		ID:          req.CreatorID,
 		Username:    req.Username,
-		Team:        firstTeam,
+		Team:        game.Spectator, // Start as spectator instead of first team
 		IsSpymaster: false,
 	}
 	newGame.Players = append(newGame.Players, creator)
@@ -201,17 +201,35 @@ func (s *ServiceImpl) JoinGame(req game.JoinGameRequest) (*game.GameState, error
 	}
 
 	// Check if player is already in the game
-	for _, player := range gameState.Players {
+	for i, player := range gameState.Players {
 		if player.ID == req.PlayerID {
-			return gameState, nil // Player already in game, just return the game state
+			// If player is already in game but wants to change their name or team, update it
+			if req.Username != "" && req.Username != player.Username {
+				gameState.Players[i].Username = req.Username
+			}
+
+			// If team is specified and different from current, update it
+			if req.Team != "" && req.Team != player.Team {
+				gameState.Players[i].Team = req.Team
+			}
+
+			gameState.UpdatedAt = time.Now()
+			s.broadcastGameUpdate(gameState)
+			return gameState, nil
 		}
+	}
+
+	// Use spectator team if no team specified
+	team := req.Team
+	if team == "" {
+		team = game.Spectator
 	}
 
 	// Add the new player
 	player := game.Player{
 		ID:          req.PlayerID,
 		Username:    req.Username,
-		Team:        req.Team,
+		Team:        team,
 		IsSpymaster: false,
 	}
 	gameState.Players = append(gameState.Players, player)
@@ -249,6 +267,11 @@ func (s *ServiceImpl) RevealCard(req game.RevealCardRequest) (*game.GameState, e
 
 	if player == nil {
 		return nil, errors.New("player not found in this game")
+	}
+
+	// Spectators can't reveal cards
+	if player.Team == game.Spectator {
+		return nil, errors.New("spectators cannot reveal cards")
 	}
 
 	// Spymasters can't reveal cards
@@ -349,6 +372,11 @@ func (s *ServiceImpl) SetSpymaster(gameID string, playerID string) (*game.GameSt
 		return nil, errors.New("player not found in this game")
 	}
 
+	// Spectators can't be spymasters
+	if player.Team == game.Spectator {
+		return nil, errors.New("spectators cannot be spymasters")
+	}
+
 	// Check if there's already a spymaster for this team
 	for _, p := range gameState.Players {
 		if p.Team == player.Team && p.IsSpymaster && p.ID != playerID {
@@ -393,6 +421,11 @@ func (s *ServiceImpl) EndTurn(gameID string, playerID string) (*game.GameState, 
 		return nil, errors.New("player not found in this game")
 	}
 
+	// Spectators can't end turns
+	if player.Team == game.Spectator {
+		return nil, errors.New("spectators cannot end turns")
+	}
+
 	// Check if it's the player's team's turn
 	if player.Team != gameState.CurrentTurn {
 		return nil, errors.New("it's not your team's turn")
@@ -418,6 +451,11 @@ func (s *ServiceImpl) ChangeTeam(gameID string, playerID string, team game.Team)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	// Validate team
+	if team != game.RedTeam && team != game.BlueTeam && team != game.Spectator {
+		return nil, fmt.Errorf("invalid team: %s", team)
+	}
+
 	gameState, exists := s.games[gameID]
 	if !exists {
 		return nil, errors.New("game not found")
@@ -435,13 +473,19 @@ func (s *ServiceImpl) ChangeTeam(gameID string, playerID string, team game.Team)
 		return nil, errors.New("player not found in this game")
 	}
 
-	// Don't allow spymasters to change teams
-	if gameState.Players[playerIndex].IsSpymaster {
-		return nil, errors.New("spymasters cannot change teams")
+	// Don't allow spymasters to change teams unless they're becoming spectators
+	if gameState.Players[playerIndex].IsSpymaster && team != game.Spectator {
+		return nil, errors.New("spymasters cannot change teams (must become spectator first)")
 	}
 
 	// Update the player's team
 	gameState.Players[playerIndex].Team = team
+
+	// If changing to spectator, remove spymaster status
+	if team == game.Spectator {
+		gameState.Players[playerIndex].IsSpymaster = false
+	}
+
 	gameState.UpdatedAt = time.Now()
 
 	// Update repository if available

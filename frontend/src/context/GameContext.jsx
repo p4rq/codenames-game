@@ -49,6 +49,7 @@ export const GameProvider = ({ children }) => {
 
   const clearError = () => setError(null);
 
+  // Modify startNewGame to set creator as spectator initially
   const startNewGame = async (playerId, username) => {
     clearError();
     
@@ -63,6 +64,26 @@ export const GameProvider = ({ children }) => {
       if (response.status === 200 || response.status === 201) {
         console.log("Server response:", response.data);
         setGame(response.data);
+        
+        // Set the creator as spectator initially
+        if (user && user.id === playerId) {
+          updateUser({
+            ...user,
+            team: 'spectator'
+          });
+          
+          // Also update localStorage
+          try {
+            const userData = JSON.parse(localStorage.getItem('user'));
+            if (userData) {
+              userData.team = 'spectator';
+              localStorage.setItem('user', JSON.stringify(userData));
+            }
+          } catch (e) {
+            console.error('Error updating localStorage:', e);
+          }
+        }
+        
         return response.data;
       } else {
         throw new Error(`Failed to start game: ${response.statusText}`);
@@ -74,17 +95,18 @@ export const GameProvider = ({ children }) => {
     }
   };
 
-  // Add the joinExistingGame function
-  const joinExistingGame = async (gameId, userId, username, team) => {
+  // Modify joinExistingGame to set joiner as spectator initially
+  const joinExistingGame = async (gameId, userId, username) => {
     try {
       clearError();
-      console.log("Joining game:", { gameId, userId, username, team });
+      console.log("Joining game as spectator:", { gameId, userId, username });
       
+      // Default to spectator team when joining
       const response = await axios.post(`${API_URL}/game/join`, {
         game_id: gameId,
         player_id: userId,
         username: username,
-        team: team
+        team: 'spectator'
       });
       
       console.log("Join game response:", response.data);
@@ -97,6 +119,26 @@ export const GameProvider = ({ children }) => {
       
       const joinedGame = response.data;
       setGame(joinedGame);
+      
+      // Set user as spectator in context
+      if (user && user.id === userId) {
+        updateUser({
+          ...user,
+          team: 'spectator'
+        });
+        
+        // Also update localStorage
+        try {
+          const userData = JSON.parse(localStorage.getItem('user'));
+          if (userData) {
+            userData.team = 'spectator';
+            localStorage.setItem('user', JSON.stringify(userData));
+          }
+        } catch (e) {
+          console.error('Error updating localStorage:', e);
+        }
+      }
+      
       return joinedGame;
     } catch (err) {
       console.error("Error joining game:", err);
@@ -303,6 +345,48 @@ export const GameProvider = ({ children }) => {
     }
   };
   
+  // Add this function for setting user as a spectator
+  const setUserSpectator = async (gameId) => {
+    if (!user) return null;
+    
+    try {
+      // Update user context to spectator
+      updateUser({
+        ...user,
+        team: 'spectator'
+      });
+      
+      // Update localStorage for persistence
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user'));
+        if (storedUser) {
+          localStorage.setItem('user', JSON.stringify({ ...storedUser, team: 'spectator' }));
+        }
+      } catch (e) {
+        console.error("Error updating user in localStorage:", e);
+      }
+      
+      // API call to set user as spectator
+      const response = await axios.post(`${API_URL}/game/join`, {
+        game_id: gameId,
+        player_id: user.id,
+        username: user.username,
+        team: 'spectator'
+      });
+      
+      if (response.data) {
+        setGame(response.data);
+      }
+      
+      console.log(`User ${user.username} set as spectator`);
+      return true;
+    } catch (error) {
+      console.error("Error setting user as spectator:", error);
+      setError(`Failed to join as spectator: ${error.message}`);
+      return false;
+    }
+  };
+
   // Update the provider value with all functions
   return (
     <GameContext.Provider 
@@ -321,7 +405,8 @@ export const GameProvider = ({ children }) => {
         endTurn,
         changeTeam,
         setUserTeam,
-        handleTeamChange
+        handleTeamChange,
+        setUserSpectator  // Add this new function
       }}
     >
       {children}

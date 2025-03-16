@@ -8,8 +8,9 @@ import (
 type Team string
 
 const (
-	RedTeam  Team = "red"
-	BlueTeam Team = "blue"
+	RedTeam   Team = "red"
+	BlueTeam  Team = "blue"
+	Spectator Team = "spectator" // Add this new team type
 )
 
 // CardType represents the type of a card

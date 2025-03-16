@@ -155,6 +155,15 @@ const Game = () => {
         </div>
       </div>
       
+      {user && user.team === 'spectator' && (
+        <div className="spectator-notice">
+          <p>
+            You're currently a <strong>Spectator</strong>. 
+            Choose a team from your profile menu to participate in the game.
+          </p>
+        </div>
+      )}
+      
       <div className="game-content">
         <div className="game-board">
           <Board 

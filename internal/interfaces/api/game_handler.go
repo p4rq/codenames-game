@@ -72,15 +72,22 @@ func (h *GameHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If team is specified, validate it (including spectator)
+	if req.Team != "" && req.Team != string(game.RedTeam) && req.Team != string(game.BlueTeam) && req.Team != string(game.Spectator) {
+		http.Error(w, "Invalid team selection", http.StatusBadRequest)
+		return
+	}
+
 	joinReq := game.JoinGameRequest{
 		GameID:   req.GameID,
 		PlayerID: req.PlayerID,
 		Username: req.Username,
-		Team:     game.Team(req.Team),
 	}
 
-	// Make sure the user is assigned a team
-	if req.Team != "" {
+	// Default to spectator if team not specified
+	if req.Team == "" {
+		joinReq.Team = game.Spectator
+	} else {
 		joinReq.Team = game.Team(req.Team)
 	}
 
@@ -194,8 +201,8 @@ func (h *GameHandler) ChangeTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate team value
-	if req.Team != string(game.RedTeam) && req.Team != string(game.BlueTeam) {
+	// Validate team value - Updated to include Spectator
+	if req.Team != string(game.RedTeam) && req.Team != string(game.BlueTeam) && req.Team != string(game.Spectator) {
 		http.Error(w, "Invalid team selection", http.StatusBadRequest)
 		return
 	}

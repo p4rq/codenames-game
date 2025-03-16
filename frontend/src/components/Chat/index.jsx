@@ -81,7 +81,7 @@ const Chat = ({ gameId, team }) => {
     }
   };
 
-  // Update the canAccessChat function to be more reliable
+  // Update the checkChatAccess function
   const checkChatAccess = () => {
     // Debug logging
     console.log("canAccessChat check:", {
@@ -101,30 +101,17 @@ const Chat = ({ gameId, team }) => {
       return false;
     }
     
-    // Try to get user's team from different sources
+    // Get user team
     let userTeam = user.team;
     if (!userTeam && game && game.players) {
-      // Find the user in the game's players
       const playerInGame = game.players.find(p => p.id === user.id);
       if (playerInGame) {
         userTeam = playerInGame.team;
       }
     }
     
-    // Another fallback - check localStorage directly
-    if (!userTeam) {
-      try {
-        const storedUser = JSON.parse(localStorage.getItem('user'));
-        if (storedUser && storedUser.team) {
-          userTeam = storedUser.team;
-        }
-      } catch (e) {
-        console.error("Error parsing user from localStorage:", e);
-      }
-    }
-    
-    if (!userTeam) {
-      console.log("User has no team - denying access to team chat");
+    // Spectators can't access team chats
+    if (!userTeam || userTeam === 'spectator') {
       return false;
     }
     

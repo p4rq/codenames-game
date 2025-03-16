@@ -106,10 +106,9 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
     return '';
   };
   
-  // Get display name for team
+  // Get team display - update to handle spectator team
   const getTeamDisplay = () => {
-    if (!currentTeam) return 'Observer';
-    if (currentTeam === 'observer') return 'Observer';
+    if (!currentTeam || currentTeam === 'spectator') return 'Spectator';
     return currentTeam.charAt(0).toUpperCase() + currentTeam.slice(1);
   };
   
@@ -134,7 +133,11 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
           {user && (
             <div className="user-menu">
               <button 
-                className={`user-menu-button ${currentTeam ? `${currentTeam}-user` : ''}`}
+                className={`user-menu-button ${
+                  currentTeam === 'red' ? 'red-user' : 
+                  currentTeam === 'blue' ? 'blue-user' : 
+                  'spectator-user'
+                }`}
                 onClick={() => setShowSettings(!showSettings)}
               >
                 <div className="user-info">
@@ -164,7 +167,7 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
                   {/* Change team - only show if in a game */}
                   {gameId && (
                     <div className="team-selection">
-                      <label>Change Team</label>
+                      <label>Select Team</label>
                       <div className="team-buttons">
                         <button 
                           className={`team-btn red ${currentTeam === 'red' ? 'active' : ''}`}
@@ -177,6 +180,12 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
                           onClick={() => handleTeamChange('blue')}
                         >
                           Blue Team
+                        </button>
+                        <button 
+                          className={`team-btn spectator ${currentTeam === 'spectator' ? 'active' : ''}`}
+                          onClick={() => handleTeamChange('spectator')}
+                        >
+                          Spectator
                         </button>
                       </div>
                     </div>

@@ -147,6 +147,17 @@
   border-color: #6464ff;
 }
 
+/* Add spectator styling */
+.user-menu-button.spectator-user {
+  background-color: rgba(150, 150, 150, 0.2);
+  border-color: #969696;
+}
+
+.spectator-user .team-label {
+  background-color: #969696;
+  color: white;
+}
+
 .dropdown-icon {
   color: #888;
   font-size: 0.8rem;
@@ -253,6 +264,22 @@
 
 .team-btn.blue {
   background-color: #4dabf7;
+}
+
+/* Team selection button for spectator */
+.team-btn.spectator {
+  background-color: #f0f0f0;
+  color: #555;
+  border: 1px solid #969696;
+}
+
+.team-btn.spectator.active {
+  background-color: #969696;
+  color: white;
+}
+
+.team-btn.spectator:hover {
+  background-color: #d0d0d0;
 }
 
 .team-btn.active {
