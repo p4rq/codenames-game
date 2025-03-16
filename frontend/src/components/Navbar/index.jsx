@@ -26,6 +26,12 @@ const Navbar = ({ darkMode, toggleDarkMode, gameId }) => {
     }
   };
   
+  // Get display name for team
+  const getTeamDisplay = () => {
+    if (!user || !user.team) return 'Observer';
+    return user.team.charAt(0).toUpperCase() + user.team.slice(1);
+  };
+  
   return (
     <nav className={`navbar ${darkMode ? 'dark' : ''}`}>
       <div className="navbar-content">
@@ -47,11 +53,15 @@ const Navbar = ({ darkMode, toggleDarkMode, gameId }) => {
           {user && (
             <div className="user-menu">
               <button 
-                className="user-menu-button"
+                className={`user-menu-button ${user.team || 'observer'}-user`}
                 onClick={() => setShowSettings(!showSettings)}
               >
-                <span className="username">{user.username}</span>
-                <span className={`team-indicator ${user.team || 'neutral'}`}></span>
+                <div className="user-info">
+                  <span className="username">{user.username}</span>
+                  {user.team && (
+                    <span className="team-label">{getTeamDisplay()}</span>
+                  )}
+                </div>
                 <span className="dropdown-icon">▼</span>
               </button>
               
