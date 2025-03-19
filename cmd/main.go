@@ -72,6 +72,9 @@ func main() {
 	gameHandler := api.NewGameHandler(gameSvc)
 	chatHandler := api.NewChatHandler(chatSvc)
 
+	// Add word handler
+	wordHandler := api.NewWordHandler(gameSvc)
+
 	// Setup router
 	router := mux.NewRouter()
 
@@ -86,6 +89,12 @@ func main() {
 	apiRouter.HandleFunc("/game/set-spymaster", gameHandler.SetSpymaster).Methods("POST")
 	apiRouter.HandleFunc("/game/end-turn", gameHandler.EndTurn).Methods("POST")
 	apiRouter.HandleFunc("/game/change-team", gameHandler.ChangeTeam).Methods("POST")
+
+	// Word management routes
+	apiRouter.HandleFunc("/words", wordHandler.GetWords).Methods("GET")
+	apiRouter.HandleFunc("/words/add", wordHandler.AddWord).Methods("POST")
+	apiRouter.HandleFunc("/words/delete", wordHandler.DeleteWord).Methods("POST")
+
 	// Chat routes
 	apiRouter.HandleFunc("/games/{gameId}/messages", chatHandler.GetGameMessages).Methods("GET")
 	apiRouter.HandleFunc("/games/{gameId}/messages", chatHandler.SendGameMessage).Methods("POST")

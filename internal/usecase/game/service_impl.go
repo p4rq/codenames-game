@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,10 +19,18 @@ import (
 
 // Repository defines the storage operations for games
 type Repository interface {
-	Create(game *game.GameState) error
+	// Game operations
+	Create(game *game.GameState) error // Changed from Save to Create
 	FindByID(id string) (*game.GameState, error)
+	FindAll() ([]*game.GameState, error) // Added missing FindAll method
 	Update(game *game.GameState) error
 	Delete(id string) error
+
+	// Word operations
+	GetWords() ([]string, error)
+	AddWord(word string) error
+	AddWords(words []string) error
+	DeleteWord(word string) error
 }
 
 // ServiceImpl implements the game Service interface
@@ -50,16 +59,46 @@ func NewServiceWithWebSocket(repo Repository, wsHandler websocket.UpdateBroadcas
 
 // Private helper to initialize a service
 func newService(repo Repository, wsHandler websocket.UpdateBroadcaster) *ServiceImpl {
-	// Initialize with some default words for Codenames
-	wordList := []string{
-		"AFRICA", "AGENT", "AIR", "ALIEN", "ALPS", "AMAZON", "AMBULANCE", "AMERICA", "ANGEL",
-		"ANTARCTICA", "APPLE", "ARM", "ATLANTIS", "AUSTRALIA", "AZTEC", "BACK", "BALL", "BAND",
-		"BANK", "BAR", "BARK", "BAT", "BATTERY", "BEACH", "BEAR", "BEAT", "BED", "BEIJING",
-		"BELL", "BELT", "BERLIN", "BERMUDA", "BERRY", "BILL", "BLOCK", "BOARD", "BOLT", "BOMB",
-		"BOND", "BOOM", "BOOT", "BOTTLE", "BOW", "BOX", "BRIDGE", "BRUSH", "BUCK", "BUFFALO",
-		"BUG", "BUGLE", "BUTTON", "CALF", "CANADA", "CAP", "CAPITAL", "CAR", "CARD", "CARROT",
-		"CASINO", "CAST", "CAT", "CELL", "CENTAUR", "CENTER", "CHAIR", "CHANGE", "CHARGE", "CHECK",
-		// Add more words as needed
+	var wordList []string
+	var err error
+
+	// Try to load words from repository if available
+	if repo != nil {
+		words, err := repo.GetWords()
+		if err == nil && len(words) >= 25 {
+			wordList = words
+			fmt.Printf("Loaded %d words from repository\n", len(wordList))
+		} else if err != nil {
+			fmt.Printf("Error loading words from repository: %v\n", err)
+		} else if len(words) < 25 {
+			fmt.Printf("Not enough words in repository (%d). Need at least 25.\n", len(words))
+		}
+	}
+
+	// If no words loaded from repository, use default list
+	if len(wordList) < 25 {
+		// Fallback to default word list
+		wordList = []string{
+			"AFRICA", "AGENT", "AIR", "ALIEN", "ALPS", "AMAZON", "AMBULANCE", "AMERICA", "ANGEL",
+			"ANTARCTICA", "APPLE", "ARM", "ATLANTIS", "AUSTRALIA", "AZTEC", "BACK", "BALL", "BAND",
+			"BANK", "BAR", "BARK", "BAT", "BATTERY", "BEACH", "BEAR", "BEAT", "BED", "BEIJING",
+			"BELL", "BELT", "BERLIN", "BERMUDA", "BERRY", "BILL", "BLOCK", "BOARD", "BOLT", "BOMB",
+			"BOND", "BOOM", "BOOT", "BOTTLE", "BOW", "BOX", "BRIDGE", "BRUSH", "BUCK", "BUFFALO",
+			"BUG", "BUGLE", "BUTTON", "CALF", "CANADA", "CAP", "CAPITAL", "CAR", "CARD", "CARROT",
+			"CASINO", "CAST", "CAT", "CELL", "CENTAUR", "CENTER", "CHAIR", "CHANGE", "CHARGE", "CHECK",
+			// Add more words as needed
+		}
+		fmt.Printf("Using default word list with %d words\n", len(wordList))
+
+		// Save the default words to the repository if available
+		if repo != nil {
+			err = repo.AddWords(wordList)
+			if err != nil {
+				fmt.Printf("Failed to save default words to repository: %v\n", err)
+			} else {
+				fmt.Println("Default words saved to repository")
+			}
+		}
 	}
 
 	return &ServiceImpl{
@@ -553,4 +592,93 @@ func (s *ServiceImpl) generateCards() []game.Card {
 	})
 
 	return cards
+}
+
+// Add these methods to your ServiceImpl
+
+// GetAllWords returns all available words
+func (s *ServiceImpl) GetAllWords() ([]string, error) {
+	if s.repo != nil {
+		return s.repo.GetWords()
+	}
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.wordList, nil
+}
+
+// AddNewWord adds a new word
+func (s *ServiceImpl) AddNewWord(word string) error {
+	if s.repo != nil {
+		err := s.repo.AddWord(word)
+		if err != nil {
+			return err
+		}
+
+		// Update the in-memory word list
+		words, err := s.repo.GetWords()
+		if err == nil {
+			s.mutex.Lock()
+			s.wordList = words
+			s.mutex.Unlock()
+		}
+
+		return nil
+	}
+
+	// If no repository, just update the in-memory list
+	word = strings.TrimSpace(strings.ToUpper(word))
+	if word == "" {
+		return errors.New("word cannot be empty")
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// Check if word already exists
+	for _, w := range s.wordList {
+		if w == word {
+			return nil // Word already exists
+		}
+	}
+
+	s.wordList = append(s.wordList, word)
+	return nil
+}
+
+// DeleteExistingWord removes a word
+func (s *ServiceImpl) DeleteExistingWord(word string) error {
+	if s.repo != nil {
+		err := s.repo.DeleteWord(word)
+		if err != nil {
+			return err
+		}
+
+		// Update the in-memory word list
+		words, err := s.repo.GetWords()
+		if err == nil {
+			s.mutex.Lock()
+			s.wordList = words
+			s.mutex.Unlock()
+		}
+
+		return nil
+	}
+
+	// If no repository, just update the in-memory list
+	word = strings.TrimSpace(strings.ToUpper(word))
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// Filter out the word
+	var newList []string
+	for _, w := range s.wordList {
+		if w != word {
+			newList = append(newList, w)
+		}
+	}
+
+	s.wordList = newList
+	return nil
 }

@@ -1,4 +1,4 @@
-package persistence
+package repository
 
 import (
 	"errors"
@@ -9,17 +9,17 @@ import (
 	"codenames-game/internal/domain/game"
 )
 
-// GameRepository implements the repository interface for games
-type GameRepository struct {
+// InMemoryRepository implements Repository with in-memory storage
+type InMemoryRepository struct {
 	games       map[string]*game.GameState
 	words       []string
-	activeWords map[string]bool
+	activeWords map[string]bool // Track which words are active
 	mutex       sync.RWMutex
 }
 
-// NewGameRepository creates a new in-memory game repository
-func NewGameRepository() *GameRepository {
-	// Default word list
+// NewInMemoryRepository creates a new repository with in-memory storage
+func NewInMemoryRepository() *InMemoryRepository {
+	// Default words
 	defaultWords := []string{
 		"AFRICA", "AGENT", "AIR", "ALIEN", "ALPS", "AMAZON", "AMBULANCE", "AMERICA", "ANGEL",
 		"ANTARCTICA", "APPLE", "ARM", "ATLANTIS", "AUSTRALIA", "AZTEC", "BACK", "BALL", "BAND",
@@ -28,11 +28,7 @@ func NewGameRepository() *GameRepository {
 		"BOND", "BOOM", "BOOT", "BOTTLE", "BOW", "BOX", "BRIDGE", "BRUSH", "BUCK", "BUFFALO",
 		"BUG", "BUGLE", "BUTTON", "CALF", "CANADA", "CAP", "CAPITAL", "CAR", "CARD", "CARROT",
 		"CASINO", "CAST", "CAT", "CELL", "CENTAUR", "CENTER", "CHAIR", "CHANGE", "CHARGE", "CHECK",
-		"CHEST", "CHICK", "CHINA", "CHOCOLATE", "CHURCH", "CIRCLE", "CLIFF", "CLOAK", "CLUB", "CODE",
-		"COLD", "COMIC", "COMPOUND", "CONCERT", "CONDUCTOR", "CONTRACT", "COOK", "COPPER", "COTTON", "COURT",
-		"COVER", "CRANE", "CRASH", "CRICKET", "CROSS", "CROWN", "CYCLE", "CZECH", "DANCE", "DATE",
-		"DAY", "DEATH", "DECK", "DEGREE", "DIAMOND", "DICE", "DINOSAUR", "DISEASE", "DOCTOR", "DOG",
-		"DRAFT", "DRAGON", "DRESS", "DRILL", "DROP", "DUCK", "DWARF", "EAGLE", "EGYPT", "EMBASSY",
+		// Add more words as needed
 	}
 
 	// Create active words map
@@ -41,7 +37,7 @@ func NewGameRepository() *GameRepository {
 		activeWords[word] = true
 	}
 
-	return &GameRepository{
+	return &InMemoryRepository{
 		games:       make(map[string]*game.GameState),
 		words:       defaultWords,
 		activeWords: activeWords,
@@ -49,21 +45,17 @@ func NewGameRepository() *GameRepository {
 	}
 }
 
-// Create stores a new game
-func (r *GameRepository) Create(gameState *game.GameState) error {
+// Save stores a game in memory
+func (r *InMemoryRepository) Save(gameState *game.GameState) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-
-	if _, exists := r.games[gameState.ID]; exists {
-		return errors.New("game with this ID already exists")
-	}
 
 	r.games[gameState.ID] = gameState
 	return nil
 }
 
-// FindByID retrieves a game by ID
-func (r *GameRepository) FindByID(id string) (*game.GameState, error) {
+// FindByID retrieves a game from memory by ID
+func (r *InMemoryRepository) FindByID(id string) (*game.GameState, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
@@ -71,25 +63,23 @@ func (r *GameRepository) FindByID(id string) (*game.GameState, error) {
 	if !exists {
 		return nil, errors.New("game not found")
 	}
-
 	return gameState, nil
 }
 
-// FindAll retrieves all games
-func (r *GameRepository) FindAll() ([]*game.GameState, error) {
+// FindAll retrieves all games from memory
+func (r *InMemoryRepository) FindAll() ([]*game.GameState, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	var allGames []*game.GameState
+	games := make([]*game.GameState, 0, len(r.games))
 	for _, gameState := range r.games {
-		allGames = append(allGames, gameState)
+		games = append(games, gameState)
 	}
-
-	return allGames, nil
+	return games, nil
 }
 
-// Update modifies an existing game
-func (r *GameRepository) Update(gameState *game.GameState) error {
+// Update modifies a game in memory
+func (r *InMemoryRepository) Update(gameState *game.GameState) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -102,8 +92,8 @@ func (r *GameRepository) Update(gameState *game.GameState) error {
 	return nil
 }
 
-// Delete removes a game
-func (r *GameRepository) Delete(id string) error {
+// Delete removes a game from memory
+func (r *InMemoryRepository) Delete(id string) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -115,13 +105,13 @@ func (r *GameRepository) Delete(id string) error {
 	return nil
 }
 
-// GetWords returns all active words
-func (r *GameRepository) GetWords() ([]string, error) {
+// GetWords retrieves all active words from memory
+func (r *InMemoryRepository) GetWords() ([]string, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
 	// Filter only active words
-	var activeWords []string
+	activeWords := make([]string, 0, len(r.activeWords))
 	for word, active := range r.activeWords {
 		if active {
 			activeWords = append(activeWords, word)
@@ -131,8 +121,8 @@ func (r *GameRepository) GetWords() ([]string, error) {
 	return activeWords, nil
 }
 
-// AddWord adds a new word
-func (r *GameRepository) AddWord(word string) error {
+// AddWord adds a word to memory
+func (r *InMemoryRepository) AddWord(word string) error {
 	word = strings.TrimSpace(strings.ToUpper(word))
 	if word == "" {
 		return errors.New("word cannot be empty")
@@ -141,26 +131,19 @@ func (r *GameRepository) AddWord(word string) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	// Add to words list if not already there
-	found := false
-	for _, w := range r.words {
-		if w == word {
-			found = true
-			break
-		}
-	}
-
-	if !found {
+	// If word doesn't exist in the list, add it
+	if _, exists := r.activeWords[word]; !exists {
 		r.words = append(r.words, word)
 	}
 
-	// Mark as active
+	// Mark the word as active
 	r.activeWords[word] = true
+
 	return nil
 }
 
-// AddWords adds multiple words
-func (r *GameRepository) AddWords(words []string) error {
+// AddWords adds multiple words to memory
+func (r *InMemoryRepository) AddWords(words []string) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -170,37 +153,27 @@ func (r *GameRepository) AddWords(words []string) error {
 			continue
 		}
 
-		// Add to words list if not already there
-		found := false
-		for _, w := range r.words {
-			if w == word {
-				found = true
-				break
-			}
-		}
-
-		if !found {
+		// If word doesn't exist in the list, add it
+		if _, exists := r.activeWords[word]; !exists {
 			r.words = append(r.words, word)
 		}
 
-		// Mark as active
+		// Mark the word as active
 		r.activeWords[word] = true
 	}
 
 	return nil
 }
 
-// DeleteWord deactivates a word
-func (r *GameRepository) DeleteWord(word string) error {
+// DeleteWord deactivates a word in memory
+func (r *InMemoryRepository) DeleteWord(word string) error {
 	word = strings.TrimSpace(strings.ToUpper(word))
-	if word == "" {
-		return errors.New("word cannot be empty")
-	}
 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	// Mark as inactive
+	// Mark the word as inactive
 	r.activeWords[word] = false
+
 	return nil
 }
